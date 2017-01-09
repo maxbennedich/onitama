@@ -9,6 +9,7 @@ package onitama;
  * for a more in-depth analysis: http://www.craftychess.com/hyatt/collisions.html
  *
  * TODO: make index part of key to compress keys better
+ * TODO: don't overwrite entry if depth is less (shallower entries are more valuable)
  */
 public class TranspositionTable {
     public static final int NO_ENTRY = Integer.MAX_VALUE;

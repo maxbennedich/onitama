@@ -1,5 +1,10 @@
 package onitama;
 
+/**
+ * Ideas:
+ * - Generate bit boards for each card/move and for each position.
+ *
+ */
 public class Searcher {
     static final int NO_SCORE = 1000; // some score that will never occur
     static final int INF_SCORE = 999; // "infinite" alpha beta values
@@ -142,7 +147,8 @@ public class Searcher {
             for (int d = searchDepth, player = initialPlayer; d >= 0; --d, player = 1 - player)
                 moveState[d] = new MoveState(player);
 
-//            score = negamax(initialPlayer, searchDepth, 99, INF_SCORE);
+//          score = negamax(initialPlayer, searchDepth, 99, INF_SCORE);
+//          score = negamax(initialPlayer, searchDepth, -INF_SCORE, -99);
             score = negamax(initialPlayer, searchDepth, -INF_SCORE, INF_SCORE);
 
             LogMove(true, score);
@@ -305,8 +311,7 @@ public class Searcher {
         int killerPiece = NN, killerCard = 0, killerMove = 0;
 
         MoveGenerator mg = moveState[depth].moveGenerator;
-//        System.out.printf("depth=%d%n", depth);
-        mg.reset(true/*depth >= searchDepth - 2 && true*/, seenState);
+        mg.reset(seenState);
 
         // find all next moves
         for (boolean moreMoves = true; moreMoves; moreMoves = mg.next()) {
@@ -336,7 +341,7 @@ public class Searcher {
             ++fullStatesEvaluated;
             moveState[depth].move(depth, player, mg.card, mg.move, piece, mg.px, mg.py);
 
-            // see if we've reached a state where continued evaluation can not possibly affect the outcome
+            // recursive call to find node score
             int score = -negamax(1 - player, depth - 1, -beta, -alpha);
 
             // undo move
@@ -347,8 +352,14 @@ public class Searcher {
 //                System.out.printf("%sMove %d: Player %d moving piece at %d,%d to %d,%d, using %s, score = %d, bestScore = %d, alpha = %d, beta = %d, alphaOrig = %d%n",
 //                        SPACES.substring(0, (searchDepth - depth)*2), searchDepth - depth, player, mg.px, mg.py, nx, ny, playerCards[player][mg.card].name, score*(player==0?1:-1), bestScore, alpha, beta, alphaOrig);
 //            }
+//
+//            System.out.printf(" --> KILLER candidate (%d): piece=%d, card=%d, move=%d, score=%d%n", searchDepth - depth, mg.piece, playerCards[player][0].id < playerCards[player][1].id ? mg.card : 1 - mg.card, mg.move / 2, score);
+
+            // store 2 killer moves
 
             if (score > bestScore) {
+                bestScore = score;
+
                 if (depth == searchDepth) {
                     LogMove(mg.px, mg.py, nx, ny, playerCards[player][mg.card], score);
 //                    System.out.printf(" --> piece=%d, card=%d, move=%d%n", mg.piece, mg.card, mg.move);
@@ -357,10 +368,8 @@ public class Searcher {
                 killerPiece = mg.piece;
                 killerCard = playerCards[player][0].id < playerCards[player][1].id ? mg.card : 1 - mg.card; // 0 = lower card id, 1 = higher (card order may differ)
                 killerMove = mg.move / 2;
-                // stored move should be 2, not 0!
-//                System.out.printf(" --> KILLER piece=%d, card=%d, move=%d, score=%d%n", mg.piece, mg.card, mg.move, score);
 
-                bestScore = score;
+                // see if we've reached a state where continued evaluation can not possibly affect the outcome
                 if (score == WIN_SCORE) {
                     ++playerWinCutoffs[player];
                     break;
@@ -377,6 +386,7 @@ public class Searcher {
 //        if (Math.abs(bestScore) == 100)
 //            System.out.printf("Storing depth=%d, score = %d for zobrist %x%n", depth, bestScore, zobrist);
         tt.put(zobrist, boundType + (depth << 2) + ((bestScore & 1023) << 10) + (killerPiece << 20) + (killerCard << 25) + (killerMove << 26));
+//        System.out.printf(" --> KILLER found (%d): piece=%d, card=%d, move=%d, score=%d%n", searchDepth - depth, killerPiece, killerCard, killerMove, bestScore);
 
         return bestScore;
     }
@@ -397,10 +407,10 @@ public class Searcher {
             this.player = player;
         }
 
-        void reset(boolean kill, int seenState) {
+        void reset(int seenState) {
 //            System.out.printf("depth=%d, searchdepth=%d, kill=%s, state=%x%n", (seenState >> 2) & 255, searchDepth, kill, seenState);
             ++killerMoveLookups;
-            if (kill && seenState != TranspositionTable.NO_ENTRY) {
+            if (seenState != TranspositionTable.NO_ENTRY) {
                 ++killerMovesStored;
                 killerMoves = 1;
                 piece = killerPiece = (seenState >> 20) & 31;
@@ -409,6 +419,7 @@ public class Searcher {
                 move = killerMove = ((seenState >> 26) & 3)*2;
 //                if (((seenState >> 2) & 255) == 4 && piece == 22 && card == 1 && move == 0)
 //                    System.out.printf("Trying killer move at depth %d, piece %d, card %d, move %d%n", (seenState >> 2) & 255, piece, card, move);
+//                if (((seenState >> 2) & 255) == searchDepth-1) { piece = killerPiece = 7; card = killerCard = 0; move = killerMove = 0; /*System.out.printf("Trying killer move at depth %d, piece %d, card %d, move %d%n", (seenState >> 2) & 255, piece, card, move);*/ }
                 px = piece % 5; py = piece / 5;
                 pieces = boardPieces >> (piece * 2);
                 occupied = boardOccupied >> piece;

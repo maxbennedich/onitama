@@ -5,7 +5,7 @@ import onitama.Searcher;
 
 public class TestSingleSearch {
     static final int TT_BITS = 26; // log of nr of entries; 24 => 192 MB, 26 => 768 MB, 28 => 3 GB
-    static final int MAX_DEPTH = 9;
+    static final int MAX_DEPTH = 13;
 
     static final int PLAYER_0 = 0;
     static final int PLAYER_1 = 1;
