@@ -8,11 +8,10 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map.Entry;
+import java.util.Random;
 
 import onitama.Card;
 import onitama.Searcher;
-
-import java.util.Random;
 
 /*
 Cards: 1567 ms
@@ -43,11 +42,11 @@ public class TestSearchParameters {
     static final int PLAYER_1 = 1;
 
     static String BOARD_WIN_AT_13 =
-            "o.Qoo" +
+            "b.Bbb" +
             "....." +
-            ".o..." +
-            ".xx#." +
-            "x...x";
+            ".b..." +
+            ".wwW." +
+            "w...w";
 
     private static String TEST_FILE_NAME = "testdata.txt";
 
@@ -175,7 +174,7 @@ public class TestSearchParameters {
 
     private String getRandomBoard(Random rnd) {
         char[] board = ".........................".toCharArray();
-        char[] pieces = "Q#oxoxoxox".toCharArray();
+        char[] pieces = "BWbwbwbwbw".toCharArray();
 
         int nrPieces = rnd.nextBoolean() ? pieces.length : 2 + rnd.nextInt(pieces.length-2);
 
@@ -193,10 +192,10 @@ public class TestSearchParameters {
         char[] flipped = new char[N];
         for (int x = 0; x < N; ++x) {
             char c = board.charAt(x), f = c;
-            if (c == 'o') f = 'x';
-            else if (c == 'Q') f = '#';
-            else if (c == 'x') f = 'o';
-            else if (c == '#') f = 'Q';
+            if (c == 'b') f = 'w';
+            else if (c == 'B') f = 'W';
+            else if (c == 'w') f = 'b';
+            else if (c == 'W') f = 'B';
             flipped[N-1-x] = f;
         }
         return new String(flipped);

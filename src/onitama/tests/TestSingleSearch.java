@@ -5,24 +5,24 @@ import onitama.Searcher;
 
 public class TestSingleSearch {
     static final int TT_BITS = 26; // log of nr of entries; 24 => 192 MB, 26 => 768 MB, 28 => 3 GB
-    static final int MAX_DEPTH = 13;
+    static final int MAX_DEPTH = 9;
 
     static final int PLAYER_0 = 0;
     static final int PLAYER_1 = 1;
 
     static String EMPTY_BOARD =
-            "ooQoo" +
+            "bbBbb" +
             "....." +
             "....." +
             "....." +
-            "xx#xx";
+            "wwWww";
 
     static String BOARD_WIN_AT_13 =
-            "o.Qoo" +
+            "b.Bbb" +
             "....." +
-            ".o..." +
-            ".xx#." +
-            "x...x";
+            ".b..." +
+            ".wwW." +
+            "w...w";
 
     public static void main(String ... args) throws Exception {
         Searcher searcher = new Searcher(MAX_DEPTH, TT_BITS);

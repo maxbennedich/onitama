@@ -253,25 +253,25 @@ Total time: 54994 ms
 public class TestSearchDepthPerformance {
 
     static String EMPTY_BOARD =
-            "ooQoo" +
+            "bbBbb" +
             "....." +
             "....." +
             "....." +
-            "xx#xx";
+            "wwWww";
 
     static String BOARD_WIN_AT_13 =
-            "o.Qoo" +
+            "b.Bbb" +
             "....." +
-            ".o..." +
-            ".xx#." +
-            "x...x";
+            ".b..." +
+            ".wwW." +
+            "w...w";
 
     static String BOARD_CORNERS =
-            "oo..." +
-            "Q...x" +
-            "o...x" +
-            "o...#" +
-            "...xx";
+            "bb..." +
+            "B...w" +
+            "b...w" +
+            "b...W" +
+            "...ww";
 
     static String[] BOARDS = {EMPTY_BOARD, BOARD_WIN_AT_13, BOARD_CORNERS};
 

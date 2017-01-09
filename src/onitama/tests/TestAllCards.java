@@ -21,11 +21,11 @@ public class TestAllCards {
     static final int PLAYER_1 = 1;
 
     static String EMPTY_BOARD =
-            "ooQoo" +
+            "bbBbb" +
             "....." +
             "....." +
             "....." +
-            "xx#xx";
+            "wwWww";
 
     public static void main(String ... args) throws Exception {
         Searcher.LOGGING = false;

@@ -89,10 +89,10 @@ public class Searcher {
             pieceAlive[0][y] = pieceAlive[1][y] = true;
             for (int x = 0; x < N; ++x) {
                 if (board.charAt(y*5+x) == '.') board[y][x] = 0;
-                else if (board.charAt(y*5+x) == 'x') { board[y][x] = (byte)(1 + (pieceCount[0] << 2)); piecePos[0][pieceCount[0]*2] = x; piecePos[0][pieceCount[0]*2+1] = y; ++pieceCount[0]; }
-                else if (board.charAt(y*5+x) == '#') { board[y][x] = 1; piecePos[0][0] = x; piecePos[0][1] = y; }
-                else if (board.charAt(y*5+x) == 'o') { board[y][x] = (byte)(3 + (pieceCount[1] << 2)); piecePos[1][pieceCount[1]*2] = x; piecePos[1][pieceCount[1]*2+1] = y; ++pieceCount[1]; }
-                else if (board.charAt(y*5+x) == 'Q') { board[y][x] = 3; piecePos[1][0] = x; piecePos[1][1] = y; }
+                else if (board.charAt(y*5+x) == 'w') { board[y][x] = (byte)(1 + (pieceCount[0] << 2)); piecePos[0][pieceCount[0]*2] = x; piecePos[0][pieceCount[0]*2+1] = y; ++pieceCount[0]; }
+                else if (board.charAt(y*5+x) == 'W') { board[y][x] = 1; piecePos[0][0] = x; piecePos[0][1] = y; }
+                else if (board.charAt(y*5+x) == 'b') { board[y][x] = (byte)(3 + (pieceCount[1] << 2)); piecePos[1][pieceCount[1]*2] = x; piecePos[1][pieceCount[1]*2+1] = y; ++pieceCount[1]; }
+                else if (board.charAt(y*5+x) == 'B') { board[y][x] = 3; piecePos[1][0] = x; piecePos[1][1] = y; }
             }
         }*/
 
@@ -103,10 +103,10 @@ public class Searcher {
             for (int x = 0; x < N; ++x, bit *= 2, piece *= 4) {
                 if (board.charAt(y*5+x) != '.') {
                     boardOccupied |= bit;
-                    if (board.charAt(y*5+x) == 'x') { /* |= 0 not needed */ zobrist ^= Zobrist.PIECE[0][0][y*5+x]; ++pawnCount[0]; }
-                    else if (board.charAt(y*5+x) == 'o') { boardPieces |= piece; zobrist ^= Zobrist.PIECE[1][0][y*5+x]; ++pawnCount[1]; }
-                    else if (board.charAt(y*5+x) == '#') { boardPieces |= piece*2; zobrist ^= Zobrist.PIECE[0][1][y*5+x]; kingDist[0] = y + Math.abs(N/2 - x); }
-                    else if (board.charAt(y*5+x) == 'Q') { boardPieces |= piece*3; zobrist ^= Zobrist.PIECE[1][1][y*5+x]; kingDist[1] = N - 1 - y + Math.abs(N/2 - x); }
+                    if (board.charAt(y*5+x) == 'w') { /* |= 0 not needed */ zobrist ^= Zobrist.PIECE[0][0][y*5+x]; ++pawnCount[0]; }
+                    else if (board.charAt(y*5+x) == 'b') { boardPieces |= piece; zobrist ^= Zobrist.PIECE[1][0][y*5+x]; ++pawnCount[1]; }
+                    else if (board.charAt(y*5+x) == 'W') { boardPieces |= piece*2; zobrist ^= Zobrist.PIECE[0][1][y*5+x]; kingDist[0] = y + Math.abs(N/2 - x); }
+                    else if (board.charAt(y*5+x) == 'B') { boardPieces |= piece*3; zobrist ^= Zobrist.PIECE[1][1][y*5+x]; kingDist[1] = N - 1 - y + Math.abs(N/2 - x); }
                 }
             }
         }
@@ -485,7 +485,7 @@ public class Searcher {
         }
     }
 
-    char[] markers = new char[] {'•', 'x', 'o', '#', 'Ø'};
+    char[] markers = new char[] {'•', 'w', 'b', 'W', 'B'};
 
     public void printBoard() {
         for (int y = 0, bit = 1, piece = 0; y < N; ++y) {
