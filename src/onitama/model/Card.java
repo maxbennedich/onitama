@@ -1,4 +1,4 @@
-package onitama;
+package onitama.model;
 
 public class Card {
     private static int cardId = 0;
@@ -25,14 +25,22 @@ public class Card {
     public static Card Cobra = new Card("Cobra", new int[] {-1,0, 1,1, 1,-1});
 
     public String name;
-    int[] moves;
-    int id;
+    public int[] moves;
+    public int id;
 
-    Card(String name, int[] moves) {
+    private Card(String name, int[] moves) {
         this.name = name;
         this.moves = moves;
         this.id = cardId++;
 
         CARDS[id] = this;
+    }
+
+    /** @return The card with the given name (case insensitive), or null if none is found. Warning: inefficient since it loops over all cards. */
+    public static Card getByName(String name) {
+        for (Card card : CARDS)
+            if (card.name.equalsIgnoreCase(name))
+                return card;
+        return null;
     }
 }

@@ -1,4 +1,4 @@
-package onitama;
+package onitama.ai;
 
 /**
  * Hash map of seen board states with fixed size which overwrites existing entries.

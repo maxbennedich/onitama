@@ -10,8 +10,9 @@ import java.util.HashMap;
 import java.util.Map.Entry;
 import java.util.Random;
 
-import onitama.Card;
-import onitama.Searcher;
+import onitama.ai.Searcher;
+import onitama.model.Card;
+import onitama.model.CardState;
 
 /*
 Cards: 1567 ms
@@ -133,7 +134,7 @@ public class TestSearchParameters {
                         for (int c4 = c3+1; c4 < cardsToTest; ++c4) {
                             Searcher searcher = new Searcher(4, 16);
 
-                            searcher.setState(PLAYER_0, BOARD_WIN_AT_13, new Card[][] {{Card.CARDS[c0], Card.CARDS[c1]}, {Card.CARDS[c2], Card.CARDS[c3]}}, Card.CARDS[c4]);
+                            searcher.setState(PLAYER_0, BOARD_WIN_AT_13, new CardState(new Card[][] {{Card.CARDS[c0], Card.CARDS[c1]}, {Card.CARDS[c2], Card.CARDS[c3]}}, Card.CARDS[c4]));
 
                             int score = searcher.start(Integer.MAX_VALUE);
 
@@ -150,7 +151,7 @@ public class TestSearchParameters {
         for (int depth = 1; depth <= 9; ++depth) {
             Searcher searcher = new Searcher(depth, 20);
 
-            searcher.setState(PLAYER_0, BOARD_WIN_AT_13, new Card[][] {{Card.Monkey, Card.Crane}, {Card.Tiger, Card.Crab}}, Card.Dragon);
+            searcher.setState(PLAYER_0, BOARD_WIN_AT_13, new CardState(new Card[][] {{Card.Monkey, Card.Crane}, {Card.Tiger, Card.Crab}}, Card.Dragon));
 
             int score = searcher.start(Integer.MAX_VALUE);
 
@@ -163,7 +164,7 @@ public class TestSearchParameters {
         for (int ttBits = 1; ttBits < 26; ++ttBits) {
             Searcher searcher = new Searcher(6, ttBits);
 
-            searcher.setState(PLAYER_0, BOARD_WIN_AT_13, new Card[][] {{Card.Monkey, Card.Crane}, {Card.Tiger, Card.Crab}}, Card.Dragon);
+            searcher.setState(PLAYER_0, BOARD_WIN_AT_13, new CardState(new Card[][] {{Card.Monkey, Card.Crane}, {Card.Tiger, Card.Crab}}, Card.Dragon));
 
             int score = searcher.start(Integer.MAX_VALUE);
 
@@ -215,8 +216,8 @@ public class TestSearchParameters {
                     board = changeBoardPlayer(board);
 
                 searcher.setState(player, board, player == 0 ?
-                        new Card[][] {{Card.Monkey, Card.Crane}, {Card.Tiger, Card.Crab}} :
-                        new Card[][] {{Card.Tiger, Card.Crab}, {Card.Monkey, Card.Crane}}, Card.Dragon);
+                        new CardState(new Card[][] {{Card.Monkey, Card.Crane}, {Card.Tiger, Card.Crab}}, Card.Dragon) :
+                        new CardState(new Card[][] {{Card.Tiger, Card.Crab}, {Card.Monkey, Card.Crane}}, Card.Dragon));
 
                 int score = searcher.start(Integer.MAX_VALUE);
                 scores[player] = score;

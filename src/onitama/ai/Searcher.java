@@ -1,4 +1,10 @@
-package onitama;
+package onitama.ai;
+
+import onitama.model.Card;
+import onitama.model.CardState;
+import onitama.model.GameDefinition;
+import onitama.model.Move;
+import onitama.ui.Output;
 
 /**
  * Ideas:
@@ -9,10 +15,9 @@ public class Searcher {
     static final int NO_SCORE = 1000; // some score that will never occur
     static final int INF_SCORE = 999; // "infinite" alpha beta values
     static final int WIN_SCORE = 100;
-    static final int N = 5; // board dimension
-    static final int NN = N*N; // board dimension
+    public static final int N = 5; // board dimension
+    public static final int NN = N*N; // board dimension
     static final int KING_PIECE = 0;
-    static final int CARDS_PER_PLAYER = 2;
 
     static final int EXACT_SCORE = 0;
     static final int LOWER_BOUND = 1;
@@ -44,8 +49,7 @@ public class Searcher {
     int[] pawnCount = new int[2];
     int[] kingDist = new int[2];
 
-    Card[][] playerCards = new Card[2][CARDS_PER_PLAYER];
-    Card nextCard;
+    CardState cardState;
 
 //    int[] pieceHistory = new int[256*2];
 //    int[] moveHistory = new int[256*2];
@@ -62,10 +66,10 @@ public class Searcher {
 
     MoveState[] moveState;
 
-    public void setState(int playerTurn, String board, Card[][] playerCards, Card nextCard) {
+    public void setState(int playerTurn, String board, CardState cardState) {
         initPlayer(playerTurn);
         initBoard(board);
-        initCards(playerCards, nextCard);
+        initCards(cardState);
     }
 
     void initPlayer(int playerTurn) {
@@ -74,13 +78,12 @@ public class Searcher {
             zobrist ^= Zobrist.SHIFT_PLAYER; // to make hash values deterministic regardless of initial player
     }
 
-    void initCards(Card[][] playerCards, Card nextCard) {
-        this.playerCards = playerCards;
-        this.nextCard = nextCard;
+    void initCards(CardState cardState) {
+        this.cardState = cardState;
 
         for (int p = 0; p < 2; ++p)
-            for (int c = 0; c < CARDS_PER_PLAYER; ++c)
-                zobrist ^= Zobrist.CARD[p][playerCards[p][c].id];
+            for (int c = 0; c < GameDefinition.CARDS_PER_PLAYER; ++c)
+                zobrist ^= Zobrist.CARD[p][cardState.playerCards[p][c].id];
     }
 
     void initBoard(String board) {
@@ -118,10 +121,12 @@ public class Searcher {
     }
 
     String bestMoveString = "N/A";
+    public Move bestMove = null;
     int searchDepth = -1;
 
     void LogMove(int px, int py, int nx, int ny, Card card, int score) {
         bestMoveString = String.format("%d,%d -> %d,%d (%s)", px, py, nx, ny, card.name);
+        bestMove = new Move(card, px, py, nx, ny);
         LogMove(false, score);
     }
 
@@ -147,9 +152,9 @@ public class Searcher {
             for (int d = searchDepth, player = initialPlayer; d >= 0; --d, player = 1 - player)
                 moveState[d] = new MoveState(player);
 
-//          score = negamax(initialPlayer, searchDepth, 99, INF_SCORE);
+          score = negamax(initialPlayer, searchDepth, 99, INF_SCORE);
 //          score = negamax(initialPlayer, searchDepth, -INF_SCORE, -99);
-            score = negamax(initialPlayer, searchDepth, -INF_SCORE, INF_SCORE);
+//            score = negamax(initialPlayer, searchDepth, -INF_SCORE, INF_SCORE);
 
             LogMove(true, score);
 
@@ -179,7 +184,7 @@ public class Searcher {
         }
 
         void move(int depth, int player, int card, int m, long piece, int px, int py) {
-            int mx = playerCards[player][card].moves[m], my = playerCards[player][card].moves[m + 1];
+            int mx = cardState.playerCards[player][card].moves[m], my = cardState.playerCards[player][card].moves[m + 1];
             if (player == 1) { mx *= -1; my *= -1; }
 
             posx = px + mx;
@@ -238,15 +243,15 @@ public class Searcher {
             zobrist ^= Zobrist.PIECE[player][movedKing ? 1 : 0][posBit];
             zobrist ^= Zobrist.PIECE[player][movedKing ? 1 : 0][newPosBit];
 
-            zobrist ^= Zobrist.CARD[player][playerCards[player][card].id];
-            zobrist ^= Zobrist.CARD[player][nextCard.id];
+            zobrist ^= Zobrist.CARD[player][cardState.playerCards[player][card].id];
+            zobrist ^= Zobrist.CARD[player][cardState.nextCard.id];
 
             zobrist ^= Zobrist.SHIFT_PLAYER;
 
-            Card tmpCard = nextCard;
-            nextCard = playerCards[player][card];
-            playerCards[player][card] = tmpCard;
-            passedCard = nextCard;
+            Card tmpCard = cardState.nextCard;
+            cardState.nextCard = cardState.playerCards[player][card];
+            cardState.playerCards[player][card] = tmpCard;
+            passedCard = cardState.nextCard;
 
 //          System.out.printf("----------%n%s", getHistory());
 //          System.out.printf("Move %d: Player %d moving piece at %d,%d to %d,%d%n", depth, player, px, py, nx, ny);
@@ -255,9 +260,9 @@ public class Searcher {
         }
 
         void unmove(int player, int card) {
-            Card tmpCard = nextCard;
-            nextCard = playerCards[player][card];
-            playerCards[player][card] = tmpCard;
+            Card tmpCard = cardState.nextCard;
+            cardState.nextCard = cardState.playerCards[player][card];
+            cardState.playerCards[player][card] = tmpCard;
 
             if (killedPawn)
                 ++pawnCount[1-player];
@@ -318,7 +323,7 @@ public class Searcher {
             long piece = mg.pieces & 3;
 
 //            System.out.printf("depth = %d, player = %d, piece = %d, card = %d, move = %d%n", depth, mg.player, mg.piece, mg.card, mg.move);
-            int mx = playerCards[player][mg.card].moves[mg.move], my = playerCards[player][mg.card].moves[mg.move + 1];
+            int mx = cardState.playerCards[player][mg.card].moves[mg.move], my = cardState.playerCards[player][mg.card].moves[mg.move + 1];
             if (player == 1) { mx *= -1; my *= -1; }
 
             ++statesEvaluated;
@@ -361,12 +366,12 @@ public class Searcher {
                 bestScore = score;
 
                 if (depth == searchDepth) {
-                    LogMove(mg.px, mg.py, nx, ny, playerCards[player][mg.card], score);
+                    LogMove(mg.px, mg.py, nx, ny, cardState.playerCards[player][mg.card], score);
 //                    System.out.printf(" --> piece=%d, card=%d, move=%d%n", mg.piece, mg.card, mg.move);
                 }
 
                 killerPiece = mg.piece;
-                killerCard = playerCards[player][0].id < playerCards[player][1].id ? mg.card : 1 - mg.card; // 0 = lower card id, 1 = higher (card order may differ)
+                killerCard = cardState.playerCards[player][0].id < cardState.playerCards[player][1].id ? mg.card : 1 - mg.card; // 0 = lower card id, 1 = higher (card order may differ)
                 killerMove = mg.move / 2;
 
                 // see if we've reached a state where continued evaluation can not possibly affect the outcome
@@ -415,7 +420,7 @@ public class Searcher {
                 killerMoves = 1;
                 piece = killerPiece = (seenState >> 20) & 31;
                 int seenCard = (seenState >> 25) & 1;
-                card = killerCard = playerCards[player][0].id < playerCards[player][1].id ? seenCard : 1 - seenCard; // 0 = lower card id, 1 = higher (card order may differ)
+                card = killerCard = cardState.playerCards[player][0].id < cardState.playerCards[player][1].id ? seenCard : 1 - seenCard; // 0 = lower card id, 1 = higher (card order may differ)
                 move = killerMove = ((seenState >> 26) & 3)*2;
 //                if (((seenState >> 2) & 255) == 4 && piece == 22 && card == 1 && move == 0)
 //                    System.out.printf("Trying killer move at depth %d, piece %d, card %d, move %d%n", (seenState >> 2) & 255, piece, card, move);
@@ -467,10 +472,10 @@ public class Searcher {
 
                 // advance iterator
                 move += 2;
-                if (move >= playerCards[player][card].moves.length) {
+                if (move >= cardState.playerCards[player][card].moves.length) {
                     move = 0;
                     ++card;
-                    if (card >= CARDS_PER_PLAYER) {
+                    if (card >= GameDefinition.CARDS_PER_PLAYER) {
                         card = 0;
                         advancePiece();
                         moveToNextValidPiece();
@@ -485,17 +490,10 @@ public class Searcher {
         }
     }
 
-    char[] markers = new char[] {'•', 'w', 'b', 'W', 'B'};
-
     public void printBoard() {
-        for (int y = 0, bit = 1, piece = 0; y < N; ++y) {
-            for (int x = 0; x < N; ++x, bit *= 2, piece += 2) {
-                int c = (boardOccupied & bit) == 0 ? 0 : 1 + ((int)(boardPieces >> piece) & 3);
-                System.out.printf("%c", markers[c]);
-            }
-            System.out.println();
-        }
-        System.out.printf("Score: %d%n%n", score());
+        Output.printBoard(boardOccupied, boardPieces);
+
+//        System.out.printf("\n\nScore: %d%n%n", score());
     }
 
     void printHistory(int depth) {

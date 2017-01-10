@@ -1,6 +1,8 @@
-package onitama;
+package onitama.ai;
 
 import java.util.Random;
+
+import onitama.model.Card;
 
 /**
  * Zobrist hashing for creating (almost) unique hash codes for board states.

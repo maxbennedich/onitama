@@ -5,8 +5,9 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 
-import onitama.Card;
-import onitama.Searcher;
+import onitama.ai.Searcher;
+import onitama.model.Card;
+import onitama.model.CardState;
 
 /**
  * For testing wins only, use an alpha/beta window of 1!
@@ -15,7 +16,7 @@ public class TestAllCards {
     static final int THREADS = 4;
 
     static final int TT_BITS = 18; // log of nr of entries; 24 => 192 MB, 26 => 768 MB, 28 => 3 GB
-    static final int MAX_DEPTH = 7;
+    static final int MAX_DEPTH = 5;
 
     static final int PLAYER_0 = 0;
     static final int PLAYER_1 = 1;
@@ -71,7 +72,7 @@ public class TestAllCards {
                     int c0 = combo.get(0), c1 = combo.get(1), c2 = combo.get(2), c3 = combo.get(3), c4 = combo.get(4);
 
                     Searcher searcher = new Searcher(MAX_DEPTH, TT_BITS);
-                    searcher.setState(PLAYER_0, EMPTY_BOARD, new Card[][] {{Card.CARDS[c0], Card.CARDS[c1]}, {Card.CARDS[c2], Card.CARDS[c3]}}, Card.CARDS[c4]);
+                    searcher.setState(PLAYER_0, EMPTY_BOARD, new CardState(new Card[][] {{Card.CARDS[c0], Card.CARDS[c1]}, {Card.CARDS[c2], Card.CARDS[c3]}}, Card.CARDS[c4]));
 
                     long time = System.currentTimeMillis();
 

@@ -1,7 +1,8 @@
 package onitama.tests;
 
-import onitama.Card;
-import onitama.Searcher;
+import onitama.ai.Searcher;
+import onitama.model.Card;
+import onitama.model.CardState;
 
 /*
 Depth 1, board 0, cards 0: score = 1, states = 13, time = 0 ms
@@ -249,6 +250,7 @@ Depth 11, board 2, cards 1: score = 2, states = 73910325, time = 8225 ms
 Total states: 335710797
 Total time: 54994 ms
 
+(Without TT: 532581558 / 74428 ms)
  */
 public class TestSearchDepthPerformance {
 
@@ -291,9 +293,8 @@ public class TestSearchDepthPerformance {
                     Searcher searcher = new Searcher(depth, 26);
 
                     searcher.setState(0, BOARDS[board], cards == 0 ?
-                            new Card[][] {{Card.Monkey, Card.Crane}, {Card.Tiger, Card.Crab}} :
-                            new Card[][] {{Card.Monkey, Card.Frog}, {Card.Elephant, Card.Boar}},
-                            cards == 0 ? Card.Dragon : Card.Cobra);
+                            new CardState(new Card[][] {{Card.Monkey, Card.Crane}, {Card.Tiger, Card.Crab}}, Card.Dragon) :
+                            new CardState(new Card[][] {{Card.Monkey, Card.Frog}, {Card.Elephant, Card.Boar}}, Card.Cobra));
 
                     long time = System.currentTimeMillis();
                     int score = searcher.start(Integer.MAX_VALUE);

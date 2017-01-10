@@ -1,6 +1,6 @@
 package onitama.tests;
 
-import onitama.Searcher;
+import onitama.ai.Searcher;
 
 public class TestPlayByForum {
     static final int TT_BITS = 28; // log of nr of entries; 24 => 192 MB, 26 => 768 MB, 28 => 3 GB
