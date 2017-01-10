@@ -1,10 +1,12 @@
 package onitama.tests;
 
 import onitama.ai.Searcher;
+import onitama.model.Card;
+import onitama.model.CardState;
 
 public class TestSingleSearch {
     static final int TT_BITS = 26; // log of nr of entries; 24 => 192 MB, 26 => 768 MB, 28 => 3 GB
-    static final int MAX_DEPTH = 11;
+    static final int MAX_DEPTH = 13;
 
     static final int PLAYER_0 = 0;
     static final int PLAYER_1 = 1;
@@ -40,7 +42,7 @@ public class TestSingleSearch {
     public static void main(String ... args) throws Exception {
         Searcher searcher = new Searcher(MAX_DEPTH, TT_BITS);
 
-//        searcher.setState(PLAYER_0, BOARD_WIN_AT_13, new CardState(new Card[][] {{Card.Monkey, Card.Crane}, {Card.Tiger, Card.Crab}}, Card.Dragon)); // use this for testing!
+        searcher.setState(PLAYER_0, BOARD_WIN_AT_13, new CardState(new Card[][] {{Card.Monkey, Card.Crane}, {Card.Tiger, Card.Crab}}, Card.Dragon)); // use this for testing!
 //        searcher.setState(PLAYER_0, EMPTY_BOARD, new CardState(new Card[][] {{Card.Tiger, Card.Rabbit}, {Card.Rooster, Card.Cobra}}, Card.Elephant)); // fast
 //        searcher.setState(PLAYER_0, EMPTY_BOARD, new CardState(new Card[][] {{Card.Tiger, Card.Cobra}, {Card.Rabbit, Card.Rooster}}, Card.Elephant)); // slow
 //        searcher.setState(PLAYER_0, EMPTY_BOARD, new CardState(new Card[][] {{Card.Monkey, Card.Crane}, {Card.Tiger, Card.Crab}}, Card.Dragon)); // use this for testing!
@@ -53,7 +55,8 @@ public class TestSingleSearch {
 
         long time = System.currentTimeMillis();
 
-        searcher.start(Integer.MAX_VALUE);
+        searcher.start(10000);
+//        searcher.start(Integer.MAX_VALUE);
 
         time = System.currentTimeMillis() - time;
 

@@ -14,6 +14,7 @@ import onitama.ui.Output;
 public class Searcher {
     static final int NO_SCORE = 1000; // some score that will never occur
     static final int INF_SCORE = 999; // "infinite" alpha beta values
+    static final int TIME_OUT_SCORE = 998; // invalid score indicating that a time out occurred during recursion
     static final int WIN_SCORE = 100;
     public static final int N = 5; // board dimension
     public static final int NN = N*N; // board dimension
@@ -131,7 +132,7 @@ public class Searcher {
     }
 
     void LogMove(boolean depthComplete, int score) {
-        double time = (System.currentTimeMillis() - searchStartTime) / 1000.0;
+        double time = timer.elapsedTimeMs() / 1000.0;
         if (!depthComplete && time < 1)
             return;
 
@@ -139,10 +140,40 @@ public class Searcher {
         Log(String.format("%2d%2s%s%6d   %s", searchDepth + 1, depthComplete ? "->" : "  ", timeStr, score, bestMoveString));
     }
 
-    long searchStartTime;
+    Timer timer;
+
+    class Timer {
+        long searchStartTime, maxTimeMs;
+        boolean timeUp = false;
+
+        // Check for time-out every this number of states, to prevent calling System.currentTimeMillis() for every node
+        private static final long TIMEOUT_CHECK_FREQUENCY_STATES = 10000;
+
+        long nextStatesEvaluated = TIMEOUT_CHECK_FREQUENCY_STATES;
+
+        Timer(long maxTimeMs) {
+            searchStartTime = System.currentTimeMillis();
+            this.maxTimeMs = maxTimeMs;
+        }
+
+        boolean timeIsUp() {
+            if (timeUp)
+                return true;
+
+            if (fullStatesEvaluated < nextStatesEvaluated)
+                return false;
+
+            nextStatesEvaluated = fullStatesEvaluated + TIMEOUT_CHECK_FREQUENCY_STATES;
+            return timeUp = elapsedTimeMs() > maxTimeMs;
+        }
+
+        long elapsedTimeMs() {
+            return System.currentTimeMillis() - searchStartTime;
+        }
+    }
 
     public int start(long maxTimeMs) {
-        searchStartTime = System.currentTimeMillis();
+        timer = new Timer(maxTimeMs);
 
         Log("depth  time  score  move");
 
@@ -152,15 +183,13 @@ public class Searcher {
             for (int d = searchDepth, player = initialPlayer; d >= 0; --d, player = 1 - player)
                 moveState[d] = new MoveState(player);
 
-          score = negamax(initialPlayer, searchDepth, 99, INF_SCORE);
+//          score = negamax(initialPlayer, searchDepth, 99, INF_SCORE);
 //          score = negamax(initialPlayer, searchDepth, -INF_SCORE, -99);
-//            score = negamax(initialPlayer, searchDepth, -INF_SCORE, INF_SCORE);
+            score = negamax(initialPlayer, searchDepth, -INF_SCORE, INF_SCORE);
 
-            LogMove(true, score);
-
-            long elapsedTime = System.currentTimeMillis() - searchStartTime;
-            if (elapsedTime > maxTimeMs)
+            if (timer.timeIsUp())
                 break;
+            LogMove(true, score);
         }
 
         return score;
@@ -348,6 +377,7 @@ public class Searcher {
 
             // recursive call to find node score
             int score = -negamax(1 - player, depth - 1, -beta, -alpha);
+            if (timer.timeIsUp()) return TIME_OUT_SCORE;
 
             // undo move
             moveState[depth].unmove(player, mg.card);
