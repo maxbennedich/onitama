@@ -80,7 +80,7 @@ public class Searcher {
     }
 
     void initCards(CardState cardState) {
-        this.cardState = cardState;
+        this.cardState = new CardState(cardState.playerCards, cardState.nextCard);
 
         for (int p = 0; p < 2; ++p)
             for (int c = 0; c < GameDefinition.CARDS_PER_PLAYER; ++c)
@@ -382,10 +382,10 @@ public class Searcher {
             // undo move
             moveState[depth].unmove(player, mg.card);
 
-//            if (searchDepth - depth <= 1) {
+//            if (searchDepth - depth < 1) {
 //                String SPACES = "                                                       ";
 //                System.out.printf("%sMove %d: Player %d moving piece at %d,%d to %d,%d, using %s, score = %d, bestScore = %d, alpha = %d, beta = %d, alphaOrig = %d%n",
-//                        SPACES.substring(0, (searchDepth - depth)*2), searchDepth - depth, player, mg.px, mg.py, nx, ny, playerCards[player][mg.card].name, score*(player==0?1:-1), bestScore, alpha, beta, alphaOrig);
+//                        SPACES.substring(0, (searchDepth - depth)*2), searchDepth - depth, player, mg.px, mg.py, nx, ny, cardState.playerCards[player][mg.card].name, score*(player==0?1:-1), bestScore, alpha, beta, alphaOrig);
 //            }
 //
 //            System.out.printf(" --> KILLER candidate (%d): piece=%d, card=%d, move=%d, score=%d%n", searchDepth - depth, mg.piece, playerCards[player][0].id < playerCards[player][1].id ? mg.card : 1 - mg.card, mg.move / 2, score);

@@ -5,7 +5,11 @@ public class CardState {
     public Card nextCard;
 
     public CardState(Card[][] playerCards, Card nextCard) {
-        this.playerCards = playerCards;
+        // create defensive copy
+        for (int p = 0; p < 2; ++p)
+            for (int c = 0; c < GameDefinition.CARDS_PER_PLAYER; ++c)
+                this.playerCards[p][c] = playerCards[p][c];
+
         this.nextCard = nextCard;
     }
 }

@@ -14,24 +14,14 @@ public class AIPlayer extends Player {
     @Override public String getName() { return "AI (" + (player+1) + ")"; }
 
     @Override public Move getMove(int turn, GameState gameState) {
-        Searcher searcher = new Searcher(MAX_DEPTH, TT_BITS);
+        Searcher searcher = new Searcher(player == 0 ? 15 : 11, TT_BITS);
 
         searcher.setState(player, gameState.board, gameState.cardState);
 
-//        System.out.printf("Transposition table size: %d entries (%.0f MB)%n", searcher.tt.sizeEntries(), searcher.tt.sizeBytes() / 1024.0 / 1024.0);
-
-//        searcher.printBoard();
-
-//        long time = System.currentTimeMillis();
-
-        searcher.start(5000);
-
-//        time = System.currentTimeMillis() - time;
-
-//        System.out.println();
-//        searcher.printStats();
-//
-//        System.out.printf("%nElapsed time: %d ms%n", time);
+        if (player == 0)
+            searcher.start(5000);
+        else if (player == 1)
+            searcher.start(1000);
 
         Move move = searcher.bestMove;
 
