@@ -99,7 +99,7 @@ public class TestPlayByForum {
         // 5: 3,0 -> 3,1 (Boar) (score 9 after 13 moves)
         // 6: 0,3 -> 1,4 (Sheep) (score -2 after 12 moves)
         // 7: 2,1 -> 2,2 (Boar) (win after 15 moves)
-//        searcher.setState(PLAYER_0, PBF0, new Card[][] {{Card.Boar, Card.Dragon}, {Card.Rabbit, Card.Sheep}}, Card.Tiger);
+//        searcher.setState(PLAYER_0, PBF0, new CardState(new Card[][] {{Card.Boar, Card.Dragon}, {Card.Rabbit, Card.Sheep}}, Card.Tiger));
 //        searcher.setState(PLAYER_1, PBF1, new Card[][] {{Card.Tiger, Card.Dragon}, {Card.Rabbit, Card.Sheep}}, Card.Boar);
 //        searcher.setState(PLAYER_0, PBF2, new Card[][] {{Card.Tiger, Card.Dragon}, {Card.Boar, Card.Sheep}}, Card.Rabbit);
 //        searcher.setState(PLAYER_1, PBF3, new Card[][] {{Card.Tiger, Card.Rabbit}, {Card.Boar, Card.Sheep}}, Card.Dragon);

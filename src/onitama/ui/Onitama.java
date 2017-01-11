@@ -23,9 +23,9 @@ public class Onitama {
         Output.printWelcomeMessage();
         CardState cardState = Input.queryStartCards();
         players = Input.queryPlayers();
-        System.out.println();
+        Output.println();
 
-        GameSimulator game = new GameSimulator(players, new GameState(START_BOARD, cardState), true);
+        GameSimulator game = new GameSimulator(players, new GameState(START_BOARD, cardState));
         game.play();
     }
 

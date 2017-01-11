@@ -37,6 +37,14 @@ TT size: 212 ms
 Board/Player: 572 ms
 Total time: 3207 ms
 
+Better static evaluation:
+
+Cards: 2106 ms
+Depth: 864 ms
+TT size: 391 ms
+Board/Player: 601 ms
+Total time: 3964 ms
+
  */
 public class TestSearchParameters {
     static final int PLAYER_0 = 0;

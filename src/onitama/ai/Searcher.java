@@ -143,7 +143,8 @@ public class Searcher {
     Timer timer;
 
     class Timer {
-        long searchStartTime, maxTimeMs;
+        long searchStartTime;
+        long maxTimeMs;
         boolean timeUp = false;
 
         // Check for time-out every this number of states, to prevent calling System.currentTimeMillis() for every node
@@ -546,10 +547,38 @@ public class Searcher {
         return depth < searchDepth && (moveState[depth+1].killedKing || (moveState[depth+1].movedKing && moveState[depth+1].posx == N/2 && moveState[depth+1].posy == (N-1)*(1-player)));
     }
 
+    /** Score for each position on the board. (Larger score is better.) */
+    private static final int[] BOARD_SCORE = new int[] {
+            0,1,2,1,0,
+            1,2,3,2,1,
+            2,3,4,3,2,
+            1,2,3,2,1,
+            0,1,2,1,0,
+    };
+
     int score() {
         ++leavesEvaluated;
 
-        return (pawnCount[0] - pawnCount[1])*10 + (kingDist[1] - kingDist[0]);
+        int pieceScore[] = new int[2];
+
+        int occupied = boardOccupied;
+        long pieces = boardPieces;
+        int px = 0, py = 0;
+
+        for (int p = 0; p < NN; ++p) {
+            if ((occupied & 1) == 1) {
+                long piece = pieces & 3;
+                int player = (int)(piece & 1);
+                pieceScore[player] += BOARD_SCORE[p];
+            }
+            occupied >>= 1;
+            if (occupied == 0) break; // no more pieces left
+            pieces >>= 2;
+            if (++px == N) { px = 0; ++py; }
+        }
+        return (pawnCount[0] - pawnCount[1])*20 + (pieceScore[0] - pieceScore[1]);
+
+//        return (pawnCount[0] - pawnCount[1])*10 + (kingDist[1] - kingDist[0]);
     }
 
     int killerMoveLookups = 0, killerMovesStored = 0;
