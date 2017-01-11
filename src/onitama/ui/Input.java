@@ -7,6 +7,7 @@ import onitama.model.Card;
 import onitama.model.CardState;
 import onitama.model.GameDefinition;
 import onitama.model.Move;
+import onitama.model.SearchParameters;
 
 public class Input {
     static Player[] queryPlayers() {
@@ -22,7 +23,7 @@ public class Input {
             try {
                 @SuppressWarnings("resource") // don't close System.in
                 String response = new Scanner(System.in).next();
-                return response.equals("y") ? new AIPlayer(player) : new HumanPlayer(player);
+                return response.equals("y") ? new AIPlayer(player, player == 0 ? new SearchParameters(26, 15, 5000) : new SearchParameters(26, 11, 1000)) : new HumanPlayer(player);
             } catch (Exception e) {
                 System.out.println("Invalid input, try again");
             }

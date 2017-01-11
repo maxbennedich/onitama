@@ -3,25 +3,25 @@ package onitama.ui;
 import onitama.ai.Searcher;
 import onitama.model.GameState;
 import onitama.model.Move;
+import onitama.model.SearchParameters;
 
 public class AIPlayer extends Player {
 
-    static final int TT_BITS = 26; // log of nr of entries; 24 => 192 MB, 26 => 768 MB, 28 => 3 GB
-    static final int MAX_DEPTH = 11;
+    private final SearchParameters searchParameters;
 
-    AIPlayer(int player) { super(player); }
+    public AIPlayer(int player, SearchParameters searchParameters) {
+        super(player);
+        this.searchParameters = searchParameters;
+    }
 
     @Override public String getName() { return "AI (" + (player+1) + ")"; }
 
     @Override public Move getMove(int turn, GameState gameState) {
-        Searcher searcher = new Searcher(player == 0 ? 15 : 11, TT_BITS);
+        Searcher searcher = new Searcher(searchParameters.maxDepth, searchParameters.ttBits);
 
         searcher.setState(player, gameState.board, gameState.cardState);
 
-        if (player == 0)
-            searcher.start(5000);
-        else if (player == 1)
-            searcher.start(1000);
+        searcher.start(searchParameters.maxSearchTimeMs);
 
         Move move = searcher.bestMove;
 
