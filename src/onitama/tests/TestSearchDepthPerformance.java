@@ -383,7 +383,7 @@ public class TestSearchDepthPerformance {
                     int score = searcher.start(Integer.MAX_VALUE);
                     time = System.currentTimeMillis() - time;
 
-                    long states = searcher.fullStatesEvaluated;
+                    long states = searcher.stats.getFullStatesEvaluated();
                     totalStates += states;
 
                     System.out.printf("Depth %d, board %d, cards %d: score = %d, states = %d, time = %d ms%n", depth, board, cards, score, states, time);

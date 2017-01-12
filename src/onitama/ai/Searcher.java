@@ -26,24 +26,29 @@ public class Searcher {
     static final int INF_SCORE = 999; // "infinite" alpha beta values
     static final int TIME_OUT_SCORE = 998; // invalid score indicating that a time out occurred during recursion
     static final int WIN_SCORE = 100;
+
     public static final int N = 5; // board dimension
     public static final int NN = N*N; // board dimension
+
     static final int KING_PIECE = 0;
+
+    static final int MAX_DEPTH = 63;
 
     static final int EXACT_SCORE = 0;
     static final int LOWER_BOUND = 1;
     static final int UPPER_BOUND = 2;
 
-    final int maxDepth;
+    final int nominalDepth;
     final int ttBits;
 
     public static boolean LOGGING = true;
 
-    public Searcher(int maxDepth, int ttBits) {
-        this.maxDepth = maxDepth;
+    public Searcher(int nominalDepth, int ttBits) {
+        this.nominalDepth = nominalDepth;
         this.ttBits = ttBits;
 
         tt = new TranspositionTable(ttBits);
+        stats = new Stats(tt);
     }
 
     int initialPlayer;
@@ -66,16 +71,12 @@ public class Searcher {
 //    int[] moveHistory = new int[256*2];
 //    Card[] passedCardHistory = new Card[256];
 
-    long statesEvaluated = 0;
-    public long fullStatesEvaluated = 0;
-    long leavesEvaluated = 0;
-    long[] playerWinCutoffs = {0, 0};
-    long alphaBetaCutoffs = 0;
-    long ttLookups = 0, ttHits = 0;
+    public Stats stats;
 
     public TranspositionTable tt;
 
-    MoveState[] moveState;
+    MoveState[] moveState = new MoveState[MAX_DEPTH];
+    int maxDepthSearched;
 
     public void setState(int playerTurn, String board, CardState cardState) {
         initPlayer(playerTurn);
@@ -87,6 +88,9 @@ public class Searcher {
         initialPlayer = playerTurn;
         if (initialPlayer == 1)
             zobrist ^= Zobrist.SHIFT_PLAYER; // to make hash values deterministic regardless of initial player
+
+        for (int d = 0, player = initialPlayer; d < MAX_DEPTH; ++d, player = 1 - player)
+            moveState[d] = new MoveState(player);
     }
 
     void initCards(CardState cardState) {
@@ -133,21 +137,20 @@ public class Searcher {
 
     String bestMoveString = "N/A";
     public Move bestMove = null;
-    int searchDepth = -1;
 
-    void LogMove(int px, int py, int nx, int ny, Card card, int score) {
+    void LogMove(int px, int py, int nx, int ny, Card card, int depth, int score) {
         bestMoveString = String.format("%d,%d -> %d,%d (%s)", px, py, nx, ny, card.name);
         bestMove = new Move(card, px, py, nx, ny);
-        LogMove(false, score);
+        LogMove(false, depth, score);
     }
 
-    void LogMove(boolean depthComplete, int score) {
+    void LogMove(boolean depthComplete, int depth, int score) {
         double time = timer.elapsedTimeMs() / 1000.0;
         if (!depthComplete && time < 1)
             return;
 
         String timeStr = String.format(time < 10 ? "%7.2f" : "%5.0f s", time);
-        Log(String.format("%2d%2s%s%6d   %s", searchDepth + 1, depthComplete ? "->" : "  ", timeStr, score, bestMoveString));
+        Log(String.format("%2d%2s%s%6d   %s", depth, depthComplete ? "->" : "  ", timeStr, score, bestMoveString));
     }
 
     Timer timer;
@@ -171,10 +174,10 @@ public class Searcher {
             if (timeUp)
                 return true;
 
-            if (fullStatesEvaluated < nextStatesEvaluated)
+            if (stats.getFullStatesEvaluated() < nextStatesEvaluated)
                 return false;
 
-            nextStatesEvaluated = fullStatesEvaluated + TIMEOUT_CHECK_FREQUENCY_STATES;
+            nextStatesEvaluated = stats.getFullStatesEvaluated() + TIMEOUT_CHECK_FREQUENCY_STATES;
             return timeUp = elapsedTimeMs() > maxTimeMs;
         }
 
@@ -189,10 +192,8 @@ public class Searcher {
         Log("depth  time  score  move");
 
         int score = NO_SCORE;
-        for (searchDepth = 0; searchDepth < maxDepth; ++searchDepth) {
-            moveState = new MoveState[searchDepth + 1];
-            for (int d = 0, player = initialPlayer; d <= searchDepth; ++d, player = 1 - player)
-                moveState[d] = new MoveState(player);
+        for (int searchDepth = 0; searchDepth < nominalDepth; ++searchDepth) {
+            maxDepthSearched = -1;
 
 //          score = negamax(initialPlayer, searchDepth, 99, INF_SCORE);
 //          score = negamax(initialPlayer, searchDepth, -INF_SCORE, -99);
@@ -200,7 +201,7 @@ public class Searcher {
 
             if (timer.timeIsUp())
                 break;
-            LogMove(true, score);
+            LogMove(true, searchDepth + 1, score);
         }
 
         return score;
@@ -324,10 +325,13 @@ public class Searcher {
         if (depth < 0)
             return score() * (player == 0 ? 1 : -1);
 
+        if (ply > maxDepthSearched)
+            maxDepthSearched = ply;
+
         int alphaOrig = alpha;
 
         int seenState = tt.get(zobrist);
-        ++ttLookups;
+        stats.ttLookup(ply);
 
         if (seenState != TranspositionTable.NO_ENTRY) {
             int seenDepth = (seenState >> 2) & 63;
@@ -335,7 +339,7 @@ public class Searcher {
             if (seenScore >= 128) seenScore |= ~255; // to support negative numbers
             if (seenDepth >= depth || seenScore == WIN_SCORE || seenScore == -WIN_SCORE) {
                 // we've visited this exact state before, at the same or earlier move, so we know the score or its bound
-                ++ttHits;
+                stats.ttHit(ply);
 
                 int seenBoundType = seenState & 3;
 
@@ -356,7 +360,7 @@ public class Searcher {
         int killerPiece = NN, killerCard = 0, killerMove = 0;
 
         MoveGenerator mg = moveState[ply].moveGenerator;
-        mg.reset(seenState);
+        mg.reset(seenState, ply);
 
         // find all next moves
         for (boolean moreMoves = true; moreMoves; moreMoves = mg.next()) {
@@ -366,7 +370,7 @@ public class Searcher {
             int mx = cardState.playerCards[player][mg.card].moves[mg.move], my = cardState.playerCards[player][mg.card].moves[mg.move + 1];
             if (player == 1) { mx *= -1; my *= -1; }
 
-            ++statesEvaluated;
+            stats.stateEvaluated();
 
             int nx = mg.px + mx;
             int ny = mg.py + my;
@@ -383,7 +387,7 @@ public class Searcher {
                 if ((pieceOnNewPos & 1) == player) continue; // trying to move onto oneself
             }
 
-            ++fullStatesEvaluated;
+            stats.fullStateEvaluated(ply);
             moveState[ply].move(player, mg.card, mg.move, piece, mg.px, mg.py);
 
             // recursive call to find node score
@@ -407,7 +411,7 @@ public class Searcher {
                 bestScore = score;
 
                 if (ply == 0) {
-                    LogMove(mg.px, mg.py, nx, ny, cardState.playerCards[player][mg.card], score);
+                    LogMove(mg.px, mg.py, nx, ny, cardState.playerCards[player][mg.card], maxDepthSearched + 1, score);
 //                    System.out.printf(" --> piece=%d, card=%d, move=%d%n", mg.piece, mg.card, mg.move);
                 }
 
@@ -417,12 +421,12 @@ public class Searcher {
 
                 // see if we've reached a state where continued evaluation can not possibly affect the outcome
                 if (score == WIN_SCORE) {
-                    ++playerWinCutoffs[player];
+                    stats.playerWinCutoff(player);
                     break;
                 }
                 if (bestScore > alpha) alpha = bestScore;
                 if (alpha >= beta) {
-                    ++alphaBetaCutoffs;
+                    stats.alphaBetaCutoff();
                     break;
                 }
             }
@@ -453,11 +457,11 @@ public class Searcher {
             this.player = player;
         }
 
-        void reset(int seenState) {
+        void reset(int seenState, int ply) {
 //            System.out.printf("depth=%d, searchdepth=%d, kill=%s, state=%x%n", (seenState >> 2) & 255, searchDepth, kill, seenState);
-            ++killerMoveLookups;
+            stats.killerMoveLookup(ply);
             if (seenState != TranspositionTable.NO_ENTRY) {
-                ++killerMovesStored;
+                stats.killerMoveHit(ply);
                 killerMoves = 1;
                 piece = killerPiece = (seenState >> 16) & 31;
                 int seenCard = (seenState >> 21) & 1;
@@ -543,7 +547,7 @@ public class Searcher {
 
     String getHistory(int depth) {
         StringBuilder sb = new StringBuilder();
-        for (int d = maxDepth - 1; d >= depth; --d) {
+        for (int d = nominalDepth - 1; d >= depth; --d) {
             sb.append(String.format("Move %d: Player %d moving piece at %d,%d to %d,%d, using %s%n", d + 1, d&1,
                     moveState[d].pieceX, moveState[d].pieceY,
                     moveState[d].posx, moveState[d].posy,
@@ -567,7 +571,7 @@ public class Searcher {
     };
 
     int score() {
-        ++leavesEvaluated;
+        stats.leafEvaluated();
 
         int pieceScore[] = new int[2];
 
@@ -589,17 +593,5 @@ public class Searcher {
         return (pawnCount[0] - pawnCount[1])*20 + (pieceScore[0] - pieceScore[1]);
 
 //        return (pawnCount[0] - pawnCount[1])*10 + (kingDist[1] - kingDist[0]);
-    }
-
-    int killerMoveLookups = 0, killerMovesStored = 0;
-    public void printStats() {
-        System.out.printf("States evaluated: %d / %d%n", fullStatesEvaluated, statesEvaluated);
-        System.out.printf("Leaves evaluated: %d%n", leavesEvaluated);
-        System.out.printf("Player win cutoffs: %d / %d%n", playerWinCutoffs[0], playerWinCutoffs[1]);
-        System.out.printf("Alpha/beta cutoffs: %d%n", alphaBetaCutoffs);
-        System.out.printf("TT hit rate: %.2f %% (%d / %d)%n", 100.0*ttHits/ttLookups, ttHits, ttLookups);
-        System.out.printf("TT fill rate: %.2f %%%n", 100.0*tt.usedEntries()/tt.sizeEntries());
-        System.out.printf("Killer move hit rate: %.2f %% (%d / %d)%n", 100.0*killerMovesStored/killerMoveLookups, killerMovesStored, killerMoveLookups);
-        System.out.printf("Branching factor: %.2f%n", (double)fullStatesEvaluated/killerMoveLookups);
     }
 }

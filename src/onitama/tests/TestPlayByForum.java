@@ -121,7 +121,7 @@ public class TestPlayByForum {
         time = System.currentTimeMillis() - time;
 
         System.out.println();
-        searcher.printStats();
+        searcher.stats.print();
 
         System.out.printf("%nElapsed time: %d ms%n", time);
     }
