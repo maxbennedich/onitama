@@ -1,5 +1,7 @@
 package onitama.ai;
 
+import java.util.Arrays;
+
 import onitama.model.Card;
 import onitama.model.CardState;
 import onitama.model.GameDefinition;
@@ -19,7 +21,7 @@ import onitama.ui.Output;
  *
  * Ideas:
  * - Generate bit boards for each card/move and for each position.
- *
+ * - Optimize entries in TT table (high depth, exact scores)
  */
 public class Searcher {
     static final int NO_SCORE = 1000; // some score that will never occur
@@ -56,6 +58,10 @@ public class Searcher {
     int boardOccupied = 0;
     long boardPieces = 0;
     long zobrist = 0;
+
+    /** Triangular table of principal variations (best moves) for each ply. */
+    int[] pvTable = new int[MAX_DEPTH * (MAX_DEPTH + 1) / 2];
+    int[] pvLength = new int[MAX_DEPTH];
 
 //    byte[][] board = new byte[N][N];
 //    boolean[][] pieceAlive = new boolean[2][N];
@@ -135,13 +141,24 @@ public class Searcher {
             System.out.println(str);
     }
 
-    String bestMoveString = "N/A";
-    public Move bestMove = null;
+//    String bestMoveString = "N/A";
+//    public Move bestMove = null;
 
-    void LogMove(int px, int py, int nx, int ny, Card card, int depth, int score) {
-        bestMoveString = String.format("%d,%d -> %d,%d (%s)", px, py, nx, ny, card.name);
-        bestMove = new Move(card, px, py, nx, ny);
-        LogMove(false, depth, score);
+//    void LogMove(int px, int py, int nx, int ny, Card card, int depth, int score) {
+//        bestMoveString = String.format("%d,%d -> %d,%d (%s)", px, py, nx, ny, card.name);
+//        bestMove = new Move(card, px, py, nx, ny);
+//        LogMove(false, depth, score);
+//    }
+
+    Move getPVMove(int depth) {
+        int cardId = pvTable[depth] & 15;
+        int p = (pvTable[depth] >> 4) & 31;
+        int n = pvTable[depth] >> 9;
+        return new Move(Card.CARDS[cardId], p%N, p/N, n%N, n/N);
+    }
+
+    public Move getBestMove() {
+        return getPVMove(0);
     }
 
     void LogMove(boolean depthComplete, int depth, int score) {
@@ -150,7 +167,15 @@ public class Searcher {
             return;
 
         String timeStr = String.format(time < 10 ? "%7.2f" : "%5.0f s", time);
-        Log(String.format("%2d%2s%s%6d   %s", depth, depthComplete ? "->" : "  ", timeStr, score, bestMoveString));
+
+        StringBuilder pvSb = new StringBuilder();
+        for (int d = 0; d < MAX_DEPTH && pvTable[d] != -1; ++d) {
+            Move move = getPVMove(d);
+            if (d > 0) pvSb.append(" | ");
+            pvSb.append(String.format("%s %c%c-%c%c", move.card.name, 'a'+move.px, '5'-move.py, 'a'+move.nx, '5'-move.ny));
+        }
+
+        Log(String.format("%2d%2s%s%6d   %s", depth, depthComplete ? "->" : "  ", timeStr, score, pvSb));
     }
 
     Timer timer;
@@ -189,15 +214,16 @@ public class Searcher {
     public int start(long maxTimeMs) {
         timer = new Timer(maxTimeMs);
 
-        Log("depth  time  score  move");
+        Log("depth  time  score  best moves");
 
         int score = NO_SCORE;
         for (int searchDepth = 0; searchDepth < nominalDepth; ++searchDepth) {
             maxDepthSearched = -1;
+            Arrays.fill(pvTable, -1);
 
 //          score = negamax(initialPlayer, searchDepth, 99, INF_SCORE);
 //          score = negamax(initialPlayer, searchDepth, -INF_SCORE, -99);
-            score = negamax(initialPlayer, searchDepth, 0, -INF_SCORE, INF_SCORE);
+            score = negamax(initialPlayer, searchDepth, 0, 0, -INF_SCORE, INF_SCORE);
 
             if (timer.timeIsUp())
                 break;
@@ -317,7 +343,7 @@ public class Searcher {
         }
     }
 
-    int negamax(int player, int depth, int ply, int alpha, int beta) {
+    int negamax(int player, int depth, int ply, int pvIdx, int alpha, int beta) {
         if (playerWonPreviousMove(player, ply))
             return -WIN_SCORE;
 
@@ -359,6 +385,9 @@ public class Searcher {
         int bestScore = -INF_SCORE;
         int killerPiece = NN, killerCard = 0, killerMove = 0;
 
+        pvTable[pvIdx] = -1; // no pv yet
+        int pvNextIdx = pvIdx + MAX_DEPTH - ply;
+
         MoveGenerator mg = moveState[ply].moveGenerator;
         mg.reset(seenState, ply);
 
@@ -366,7 +395,6 @@ public class Searcher {
         for (boolean moreMoves = true; moreMoves; moreMoves = mg.next()) {
             long piece = mg.pieces & 3;
 
-//            System.out.printf("depth = %d, player = %d, piece = %d, card = %d, move = %d%n", depth, mg.player, mg.piece, mg.card, mg.move);
             int mx = cardState.playerCards[player][mg.card].moves[mg.move], my = cardState.playerCards[player][mg.card].moves[mg.move + 1];
             if (player == 1) { mx *= -1; my *= -1; }
 
@@ -391,7 +419,7 @@ public class Searcher {
             moveState[ply].move(player, mg.card, mg.move, piece, mg.px, mg.py);
 
             // recursive call to find node score
-            int score = -negamax(1 - player, depth - 1, ply + 1, -beta, -alpha);
+            int score = -negamax(1 - player, depth - 1, ply + 1, pvNextIdx, -beta, -alpha);
             if (timer.timeIsUp()) return TIME_OUT_SCORE;
 
             // undo move
@@ -405,15 +433,20 @@ public class Searcher {
 //
 //            System.out.printf(" --> KILLER candidate (%d): piece=%d, card=%d, move=%d, score=%d%n", searchDepth - depth, mg.piece, playerCards[player][0].id < playerCards[player][1].id ? mg.card : 1 - mg.card, mg.move / 2, score);
 
-            // store 2 killer moves
-
             if (score > bestScore) {
                 bestScore = score;
 
-                if (ply == 0) {
-                    LogMove(mg.px, mg.py, nx, ny, cardState.playerCards[player][mg.card], maxDepthSearched + 1, score);
-//                    System.out.printf(" --> piece=%d, card=%d, move=%d%n", mg.piece, mg.card, mg.move);
-                }
+                pvTable[pvIdx] = cardState.playerCards[player][mg.card].id + (mg.px + mg.py * N << 4) + (nx + ny * N << 9);
+                // TODO: store depth, or only copy until -1 found
+                System.arraycopy(pvTable, pvNextIdx, pvTable, pvIdx + 1, MAX_DEPTH - ply - 1);
+//                void movcpy (MoveType* pTarget, const MoveType* pSource, int n) {
+//                    while (n-- && (*pTarget++ = *pSource++));
+//                 }
+                // movcpy (pvArray + pvIndex + 1, pvArray + pvNextIndex, N - ply - 1);
+
+                if (ply == 0)
+                    LogMove(false, maxDepthSearched + 1, score);
+                    //LogMove(mg.px, mg.py, nx, ny, cardState.playerCards[player][mg.card], maxDepthSearched + 1, score);
 
                 killerPiece = mg.piece;
                 killerCard = cardState.playerCards[player][0].id < cardState.playerCards[player][1].id ? mg.card : 1 - mg.card; // 0 = lower card id, 1 = higher (card order may differ)
@@ -433,8 +466,6 @@ public class Searcher {
         }
 
         int boundType = bestScore <= alphaOrig ? UPPER_BOUND : (bestScore >= beta ? LOWER_BOUND : EXACT_SCORE);
-//        if (Math.abs(bestScore) == 100)
-//            System.out.printf("Storing depth=%d, score = %d for zobrist %x%n", depth, bestScore, zobrist);
         tt.put(zobrist, boundType + (depth << 2) + ((bestScore & 255) << 8) + (killerPiece << 16) + (killerCard << 21) + (killerMove << 22));
 //        System.out.printf(" --> KILLER found (%d): piece=%d, card=%d, move=%d, score=%d%n", searchDepth - depth, killerPiece, killerCard, killerMove, bestScore);
 
