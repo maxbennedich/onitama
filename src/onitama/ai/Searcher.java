@@ -1,7 +1,5 @@
 package onitama.ai;
 
-import java.util.Arrays;
-
 import onitama.model.Card;
 import onitama.model.CardState;
 import onitama.model.GameDefinition;
@@ -141,15 +139,6 @@ public class Searcher {
             System.out.println(str);
     }
 
-//    String bestMoveString = "N/A";
-//    public Move bestMove = null;
-
-//    void LogMove(int px, int py, int nx, int ny, Card card, int depth, int score) {
-//        bestMoveString = String.format("%d,%d -> %d,%d (%s)", px, py, nx, ny, card.name);
-//        bestMove = new Move(card, px, py, nx, ny);
-//        LogMove(false, depth, score);
-//    }
-
     Move getPVMove(int depth) {
         int cardId = pvTable[depth] & 15;
         int p = (pvTable[depth] >> 4) & 31;
@@ -169,7 +158,7 @@ public class Searcher {
         String timeStr = String.format(time < 10 ? "%7.2f" : "%5.0f s", time);
 
         StringBuilder pvSb = new StringBuilder();
-        for (int d = 0; d < MAX_DEPTH && pvTable[d] != -1; ++d) {
+        for (int d = 0; d < pvLength[0]; ++d) {
             Move move = getPVMove(d);
             if (d > 0) pvSb.append(" | ");
             pvSb.append(String.format("%s %c%c-%c%c", move.card.name, 'a'+move.px, '5'-move.py, 'a'+move.nx, '5'-move.ny));
@@ -219,7 +208,6 @@ public class Searcher {
         int score = NO_SCORE;
         for (int searchDepth = 0; searchDepth < nominalDepth; ++searchDepth) {
             maxDepthSearched = -1;
-            Arrays.fill(pvTable, -1);
 
 //          score = negamax(initialPlayer, searchDepth, 99, INF_SCORE);
 //          score = negamax(initialPlayer, searchDepth, -INF_SCORE, -99);
@@ -344,8 +332,12 @@ public class Searcher {
     }
 
     int negamax(int player, int depth, int ply, int pvIdx, int alpha, int beta) {
+        pvLength[ply] = 0; // default to no pv
+
         if (playerWonPreviousMove(player, ply))
             return -WIN_SCORE;
+
+//        if (ply == 9 && depth == -1) depth += 3;
 
         // no remaining depth to search -- evaluate position and return (don't store/retrieve leaf nodes from the TT, it is more efficient to reevaluate them)
         if (depth < 0)
@@ -385,7 +377,6 @@ public class Searcher {
         int bestScore = -INF_SCORE;
         int killerPiece = NN, killerCard = 0, killerMove = 0;
 
-        pvTable[pvIdx] = -1; // no pv yet
         int pvNextIdx = pvIdx + MAX_DEPTH - ply;
 
         MoveGenerator mg = moveState[ply].moveGenerator;
@@ -436,17 +427,16 @@ public class Searcher {
             if (score > bestScore) {
                 bestScore = score;
 
-                pvTable[pvIdx] = cardState.playerCards[player][mg.card].id + (mg.px + mg.py * N << 4) + (nx + ny * N << 9);
-                // TODO: store depth, or only copy until -1 found
-                System.arraycopy(pvTable, pvNextIdx, pvTable, pvIdx + 1, MAX_DEPTH - ply - 1);
-//                void movcpy (MoveType* pTarget, const MoveType* pSource, int n) {
-//                    while (n-- && (*pTarget++ = *pSource++));
-//                 }
-                // movcpy (pvArray + pvIndex + 1, pvArray + pvNextIndex, N - ply - 1);
+                if (bestScore > alpha) {
+                    alpha = bestScore;
+
+                    pvTable[pvIdx] = cardState.playerCards[player][mg.card].id + (mg.px + mg.py * N << 4) + (nx + ny * N << 9);
+                    System.arraycopy(pvTable, pvNextIdx, pvTable, pvIdx + 1, pvLength[ply + 1]);
+                    pvLength[ply] = pvLength[ply + 1] + 1;
+                }
 
                 if (ply == 0)
                     LogMove(false, maxDepthSearched + 1, score);
-                    //LogMove(mg.px, mg.py, nx, ny, cardState.playerCards[player][mg.card], maxDepthSearched + 1, score);
 
                 killerPiece = mg.piece;
                 killerCard = cardState.playerCards[player][0].id < cardState.playerCards[player][1].id ? mg.card : 1 - mg.card; // 0 = lower card id, 1 = higher (card order may differ)
@@ -457,7 +447,6 @@ public class Searcher {
                     stats.playerWinCutoff(player);
                     break;
                 }
-                if (bestScore > alpha) alpha = bestScore;
                 if (alpha >= beta) {
                     stats.alphaBetaCutoff();
                     break;
