@@ -7,6 +7,12 @@ import onitama.model.Move;
 import onitama.ui.Output;
 
 /**
+ * Improvements:
+ * - Transposition table. By itself this improved search times by around 25%. Moreover, it makes it possible to store killer moves.
+ * - Killer moves. Resulted in roughly 5x faster search times.
+ * - Changed evaluation function from (piece count & king distance) to (piece count & weighted piece position). This resulted in a 90% win rate against
+ *   an AI with the old function. That's a better improvement than increasing the search depth by 1!
+ *
  * Ideas:
  * - Generate bit boards for each card/move and for each position.
  *
@@ -320,9 +326,9 @@ public class Searcher {
         ++ttLookups;
 
         if (seenState != TranspositionTable.NO_ENTRY) {
-            int seenDepth = (seenState >> 2) & 255;
-            int seenScore = (seenState >> 10) & 1023;
-            if (seenScore >= 512) seenScore |= ~1023; // to support negative numbers
+            int seenDepth = (seenState >> 2) & 63;
+            int seenScore = (seenState >> 8) & 255;
+            if (seenScore >= 128) seenScore |= ~255; // to support negative numbers
             if (seenDepth >= depth || seenScore == WIN_SCORE || seenScore == -WIN_SCORE) {
                 // we've visited this exact state before, at the same or earlier move, so we know the score or its bound
                 ++ttHits;
@@ -343,7 +349,9 @@ public class Searcher {
         }
 
         int bestScore = -INF_SCORE;
-        int killerPiece = NN, killerCard = 0, killerMove = 0;
+
+        int killerPiece1 = NN, killerPiece2 = NN, killerCard1 = 0, killerCard2 = 0, killerMove1 = 0, killerMove2 = 0;
+        int killerScore1 = -INF_SCORE, killerScore2 = -INF_SCORE;
 
         MoveGenerator mg = moveState[depth].moveGenerator;
         mg.reset(seenState);
@@ -384,14 +392,32 @@ public class Searcher {
             moveState[depth].unmove(player, mg.card);
 
 //            if (searchDepth - depth < 1) {
-//                String SPACES = "                                                       ";
-//                System.out.printf("%sMove %d: Player %d moving piece at %d,%d to %d,%d, using %s, score = %d, bestScore = %d, alpha = %d, beta = %d, alphaOrig = %d%n",
-//                        SPACES.substring(0, (searchDepth - depth)*2), searchDepth - depth, player, mg.px, mg.py, nx, ny, cardState.playerCards[player][mg.card].name, score*(player==0?1:-1), bestScore, alpha, beta, alphaOrig);
+                String SPACES = "                                                       ";
+                System.out.printf("%sMove %d: Player %d moving piece at %d,%d to %d,%d, using %s, score = %d, bestScore = %d, alpha = %d, beta = %d, alphaOrig = %d%n",
+                        SPACES.substring(0, (searchDepth - depth)*2), searchDepth - depth, player, mg.px, mg.py, nx, ny, cardState.playerCards[player][mg.card].name, score*(player==0?1:-1), bestScore, alpha, beta, alphaOrig);
 //            }
 //
 //            System.out.printf(" --> KILLER candidate (%d): piece=%d, card=%d, move=%d, score=%d%n", searchDepth - depth, mg.piece, playerCards[player][0].id < playerCards[player][1].id ? mg.card : 1 - mg.card, mg.move / 2, score);
 
             // store 2 killer moves
+            if (score > killerScore2) {
+                if (score > killerScore1) {
+                    killerPiece2 = killerPiece1;
+                    killerCard2 = killerCard1;
+                    killerMove2 = killerMove1;
+                    killerScore2 = killerScore1;
+
+                    killerPiece1 = mg.piece;
+                    killerCard1 = cardState.playerCards[player][0].id < cardState.playerCards[player][1].id ? mg.card : 1 - mg.card; // 0 = lower card id, 1 = higher (card order may differ)
+                    killerMove1 = mg.move / 2;
+                    killerScore1 = score;
+                } else {
+                    killerPiece2 = mg.piece;
+                    killerCard2 = cardState.playerCards[player][0].id < cardState.playerCards[player][1].id ? mg.card : 1 - mg.card; // 0 = lower card id, 1 = higher (card order may differ)
+                    killerMove2 = mg.move / 2;
+                    killerScore2 = score;
+                }
+            }
 
             if (score > bestScore) {
                 bestScore = score;
@@ -400,10 +426,6 @@ public class Searcher {
                     LogMove(mg.px, mg.py, nx, ny, cardState.playerCards[player][mg.card], score);
 //                    System.out.printf(" --> piece=%d, card=%d, move=%d%n", mg.piece, mg.card, mg.move);
                 }
-
-                killerPiece = mg.piece;
-                killerCard = cardState.playerCards[player][0].id < cardState.playerCards[player][1].id ? mg.card : 1 - mg.card; // 0 = lower card id, 1 = higher (card order may differ)
-                killerMove = mg.move / 2;
 
                 // see if we've reached a state where continued evaluation can not possibly affect the outcome
                 if (score == WIN_SCORE) {
@@ -421,8 +443,14 @@ public class Searcher {
         int boundType = bestScore <= alphaOrig ? UPPER_BOUND : (bestScore >= beta ? LOWER_BOUND : EXACT_SCORE);
 //        if (Math.abs(bestScore) == 100)
 //            System.out.printf("Storing depth=%d, score = %d for zobrist %x%n", depth, bestScore, zobrist);
-        tt.put(zobrist, boundType + (depth << 2) + ((bestScore & 1023) << 10) + (killerPiece << 20) + (killerCard << 25) + (killerMove << 26));
-//        System.out.printf(" --> KILLER found (%d): piece=%d, card=%d, move=%d, score=%d%n", searchDepth - depth, killerPiece, killerCard, killerMove, bestScore);
+        int data = boundType + (depth << 2) + ((bestScore & 255) << 8);
+        data |= (killerPiece1 << 16) + (killerCard1 << 21) + (killerMove1 << 22);
+        data |= (killerPiece2 << 24) + (killerCard2 << 29) + (killerMove2 << 30);
+        tt.put(zobrist, data);
+//        if (searchDepth - depth < 1) {
+            System.out.printf(" --> KILLER 1 found (%d): piece=%d, card=%d, move=%d, score=%d%n", searchDepth - depth, killerPiece1, killerCard1, killerMove1, killerScore1);
+            if (timer.maxTimeMs != 1_000_000) System.out.printf(" --> KILLER 2 found (%d): piece=%d, card=%d, move=%d, score=%d%n", searchDepth - depth, killerPiece2, killerCard2, killerMove2, killerScore2);
+//        }
 
         return bestScore;
     }
@@ -437,7 +465,7 @@ public class Searcher {
         int piece, card, move;
 
         int killerMoves;
-        int killerPiece, killerCard, killerMove;
+        int[] killerPiece = new int[2], killerCard = new int[2], killerMove = new int[2];
 
         MoveGenerator(int player) {
             this.player = player;
@@ -448,11 +476,28 @@ public class Searcher {
             ++killerMoveLookups;
             if (seenState != TranspositionTable.NO_ENTRY) {
                 ++killerMovesStored;
-                killerMoves = 1;
-                piece = killerPiece = (seenState >> 20) & 31;
-                int seenCard = (seenState >> 25) & 1;
-                card = killerCard = cardState.playerCards[player][0].id < cardState.playerCards[player][1].id ? seenCard : 1 - seenCard; // 0 = lower card id, 1 = higher (card order may differ)
-                move = killerMove = ((seenState >> 26) & 3)*2;
+
+                killerPiece[0] = (seenState >> 16) & 31;
+                int seenCard = (seenState >> 21) & 1;
+                killerCard[0] = cardState.playerCards[player][0].id < cardState.playerCards[player][1].id ? seenCard : 1 - seenCard; // 0 = lower card id, 1 = higher (card order may differ)
+                killerMove[0] = ((seenState >> 22) & 3)*2;
+
+                if (timer.maxTimeMs == 1_000_000) {
+                    killerMoves = 1;
+                } else {
+                    killerPiece[1] = (seenState >> 24) & 31;
+                    if (killerPiece[1] == NN) {
+                        killerMoves = 1;
+                    } else {
+                        killerMoves = 2;
+                        seenCard = (seenState >> 29) & 1;
+                        killerCard[1] = cardState.playerCards[player][0].id < cardState.playerCards[player][1].id ? seenCard : 1 - seenCard; // 0 = lower card id, 1 = higher (card order may differ)
+                        killerMove[1] = ((seenState >> 30) & 3)*2;
+                    }
+                }
+
+                piece = killerPiece[0]; card = killerCard[0]; move = killerMove[0];
+
 //                if (((seenState >> 2) & 255) == 4 && piece == 22 && card == 1 && move == 0)
 //                    System.out.printf("Trying killer move at depth %d, piece %d, card %d, move %d%n", (seenState >> 2) & 255, piece, card, move);
 //                if (((seenState >> 2) & 255) == searchDepth-1) { piece = killerPiece = 7; card = killerCard = 0; move = killerMove = 0; /*System.out.printf("Trying killer move at depth %d, piece %d, card %d, move %d%n", (seenState >> 2) & 255, piece, card, move);*/ }
@@ -467,10 +512,11 @@ public class Searcher {
                 px = py = 0;
 
                 piece = card = move = 0;
-                killerPiece = -1;
+                killerPiece[0] = killerPiece[1] = -1;
+
+                moveToNextValidPiece();
             }
 
-            moveToNextValidPiece();
 //            System.out.printf("Returning piece = %d%n", piece);
         }
 
@@ -489,7 +535,16 @@ public class Searcher {
         }
 
         boolean next() {
-            if (--killerMoves == 0) {
+            --killerMoves;
+            if (killerMoves == 1) {
+                piece = killerPiece[1]; card = killerCard[1]; move = killerMove[1];
+                px = piece % 5; py = piece / 5;
+                pieces = boardPieces >> (piece * 2);
+                occupied = boardOccupied >> piece;
+                return true;
+            }
+
+            if (killerMoves == 0) {
                 occupied = boardOccupied;
                 pieces = boardPieces;
                 px = py = 0;
@@ -514,8 +569,16 @@ public class Searcher {
                 }
             }
 
-            if (piece == killerPiece && card == killerCard && move == killerMove)
+            if (timer.maxTimeMs == 1_000_000) {
+              if (piece == killerPiece[0] && card == killerCard[0] && move == killerMove[0])
                 return next();
+            } else {
+                if ((piece == killerPiece[0] && card == killerCard[0] && move == killerMove[0]) || (piece == killerPiece[1] && card == killerCard[1] && move == killerMove[1]))
+                  return next();
+            }
+//            if ((piece == killerPiece[0] && card == killerCard[0] && move == killerMove[0]) || (piece == killerPiece[1] && card == killerCard[1] && move == killerMove[1]))
+//            if (piece == killerPiece[0] && card == killerCard[0] && move == killerMove[0])
+//                return next();
 
             return piece < NN;
         }

@@ -39,6 +39,8 @@ public class TestAllCards {
         System.out.printf("Total time: %d ms%n", totalTime);
     }
 
+    static double maxDif = 0;
+
     private static void testAllCards() throws Exception {
         int cardsToTest = 16;
 
@@ -71,18 +73,34 @@ public class TestAllCards {
                     List<Integer> combo = combos.get(idx);
                     int c0 = combo.get(0), c1 = combo.get(1), c2 = combo.get(2), c3 = combo.get(3), c4 = combo.get(4);
 
-                    Searcher searcher = new Searcher(MAX_DEPTH, TT_BITS);
-                    searcher.setState(PLAYER_0, EMPTY_BOARD, new CardState(new Card[][] {{Card.CARDS[c0], Card.CARDS[c1]}, {Card.CARDS[c2], Card.CARDS[c3]}}, Card.CARDS[c4]));
+//                    Searcher searcher = new Searcher(MAX_DEPTH, TT_BITS);
+//                    searcher.setState(PLAYER_0, EMPTY_BOARD, new CardState(new Card[][] {{Card.CARDS[c0], Card.CARDS[c1]}, {Card.CARDS[c2], Card.CARDS[c3]}}, Card.CARDS[c4]));
+//
+//                    long time = System.currentTimeMillis();
+//
+//                    int score = searcher.start(Integer.MAX_VALUE);
+//
+//                    time = System.currentTimeMillis() - time;
+//
+//                    if (score == 100) {
+//                        int wins = winCount.incrementAndGet();
+//                        System.out.printf("%d. %d ms, %s/%s, %s/%s, %s (%d/%d - %.0f%%)%n", wins, time, Card.CARDS[c0].name, Card.CARDS[c1].name, Card.CARDS[c2].name, Card.CARDS[c3].name, Card.CARDS[c4].name, idx, combos.size(), idx*100.0/combos.size());
+//                    }
 
-                    long time = System.currentTimeMillis();
+                    Searcher searcher1 = new Searcher(3, TT_BITS);
+                    searcher1.setState(PLAYER_0, EMPTY_BOARD, new CardState(new Card[][] {{Card.CARDS[c0], Card.CARDS[c1]}, {Card.CARDS[c2], Card.CARDS[c3]}}, Card.CARDS[c4]));
+                    int score1 = searcher1.start(1_000_000);
 
-                    int score = searcher.start(Integer.MAX_VALUE);
+                    Searcher searcher2 = new Searcher(3, TT_BITS);
+                    searcher2.setState(PLAYER_0, EMPTY_BOARD, new CardState(new Card[][] {{Card.CARDS[c0], Card.CARDS[c1]}, {Card.CARDS[c2], Card.CARDS[c3]}}, Card.CARDS[c4]));
+                    int score2 = searcher2.start(1_000_001);
 
-                    time = System.currentTimeMillis() - time;
-
-                    if (score == 100) {
-                        int wins = winCount.incrementAndGet();
-                        System.out.printf("%d. %d ms, %s/%s, %s/%s, %s (%d/%d - %.0f%%)%n", wins, time, Card.CARDS[c0].name, Card.CARDS[c1].name, Card.CARDS[c2].name, Card.CARDS[c3].name, Card.CARDS[c4].name, idx, combos.size(), idx*100.0/combos.size());
+                    if (searcher1.fullStatesEvaluated < searcher2.fullStatesEvaluated) {
+                        double dif = (searcher2.fullStatesEvaluated - searcher1.fullStatesEvaluated) / (double)searcher1.fullStatesEvaluated;
+                        if (dif > maxDif) {
+                            maxDif = dif;
+                            System.out.printf("State mismatch: old = %d, new = %d, score = %d/%d, cards = %s/%s, %s/%s, %s (%d/%d - %.0f%%)%n", searcher1.fullStatesEvaluated, searcher2.fullStatesEvaluated, score1, score2, Card.CARDS[c0].name, Card.CARDS[c1].name, Card.CARDS[c2].name, Card.CARDS[c3].name, Card.CARDS[c4].name, idx, combos.size(), idx*100.0/combos.size());
+                        }
                     }
                 }
             });
