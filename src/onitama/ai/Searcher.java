@@ -7,6 +7,16 @@ import onitama.model.Move;
 import onitama.ui.Output;
 
 /**
+ * Improvements:
+ * - Transposition table. By itself this improved search times by around 25%. Moreover, it makes it possible to store killer moves.
+ * - Killer moves. Resulted in roughly 5x faster search times.
+ * - Two killer moves. Tried this, and it did not decrease the number of states visited. If anything it did the opposite. Unclear why, I debugged the
+ *   implementation and it seemed to work as intended. Possibly the two killer moves tend to be similar to each other (such as grabbing a certain
+ *   opponent piece, leading to material difference and a high score), and in the case that the first move fails to produce a cut-off, a more different
+ *   move is needed.
+ * - Changed evaluation function from (piece count & king distance) to (piece count & weighted piece position). This resulted in a 90% win rate against
+ *   an AI with the old function. That's a better improvement than increasing the search depth by 1!
+ *
  * Ideas:
  * - Generate bit boards for each card/move and for each position.
  *
@@ -320,9 +330,9 @@ public class Searcher {
         ++ttLookups;
 
         if (seenState != TranspositionTable.NO_ENTRY) {
-            int seenDepth = (seenState >> 2) & 255;
-            int seenScore = (seenState >> 10) & 1023;
-            if (seenScore >= 512) seenScore |= ~1023; // to support negative numbers
+            int seenDepth = (seenState >> 2) & 63;
+            int seenScore = (seenState >> 8) & 255;
+            if (seenScore >= 128) seenScore |= ~255; // to support negative numbers
             if (seenDepth >= depth || seenScore == WIN_SCORE || seenScore == -WIN_SCORE) {
                 // we've visited this exact state before, at the same or earlier move, so we know the score or its bound
                 ++ttHits;
@@ -421,7 +431,7 @@ public class Searcher {
         int boundType = bestScore <= alphaOrig ? UPPER_BOUND : (bestScore >= beta ? LOWER_BOUND : EXACT_SCORE);
 //        if (Math.abs(bestScore) == 100)
 //            System.out.printf("Storing depth=%d, score = %d for zobrist %x%n", depth, bestScore, zobrist);
-        tt.put(zobrist, boundType + (depth << 2) + ((bestScore & 1023) << 10) + (killerPiece << 20) + (killerCard << 25) + (killerMove << 26));
+        tt.put(zobrist, boundType + (depth << 2) + ((bestScore & 255) << 8) + (killerPiece << 16) + (killerCard << 21) + (killerMove << 22));
 //        System.out.printf(" --> KILLER found (%d): piece=%d, card=%d, move=%d, score=%d%n", searchDepth - depth, killerPiece, killerCard, killerMove, bestScore);
 
         return bestScore;
@@ -449,10 +459,10 @@ public class Searcher {
             if (seenState != TranspositionTable.NO_ENTRY) {
                 ++killerMovesStored;
                 killerMoves = 1;
-                piece = killerPiece = (seenState >> 20) & 31;
-                int seenCard = (seenState >> 25) & 1;
+                piece = killerPiece = (seenState >> 16) & 31;
+                int seenCard = (seenState >> 21) & 1;
                 card = killerCard = cardState.playerCards[player][0].id < cardState.playerCards[player][1].id ? seenCard : 1 - seenCard; // 0 = lower card id, 1 = higher (card order may differ)
-                move = killerMove = ((seenState >> 26) & 3)*2;
+                move = killerMove = ((seenState >> 22) & 3)*2;
 //                if (((seenState >> 2) & 255) == 4 && piece == 22 && card == 1 && move == 0)
 //                    System.out.printf("Trying killer move at depth %d, piece %d, card %d, move %d%n", (seenState >> 2) & 255, piece, card, move);
 //                if (((seenState >> 2) & 255) == searchDepth-1) { piece = killerPiece = 7; card = killerCard = 0; move = killerMove = 0; /*System.out.printf("Trying killer move at depth %d, piece %d, card %d, move %d%n", (seenState >> 2) & 255, piece, card, move);*/ }
