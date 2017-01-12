@@ -191,12 +191,12 @@ public class Searcher {
         int score = NO_SCORE;
         for (searchDepth = 0; searchDepth < maxDepth; ++searchDepth) {
             moveState = new MoveState[searchDepth + 1];
-            for (int d = searchDepth, player = initialPlayer; d >= 0; --d, player = 1 - player)
+            for (int d = 0, player = initialPlayer; d <= searchDepth; ++d, player = 1 - player)
                 moveState[d] = new MoveState(player);
 
 //          score = negamax(initialPlayer, searchDepth, 99, INF_SCORE);
 //          score = negamax(initialPlayer, searchDepth, -INF_SCORE, -99);
-            score = negamax(initialPlayer, searchDepth, -INF_SCORE, INF_SCORE);
+            score = negamax(initialPlayer, searchDepth, 0, -INF_SCORE, INF_SCORE);
 
             if (timer.timeIsUp())
                 break;
@@ -223,7 +223,7 @@ public class Searcher {
             moveGenerator = new MoveGenerator(player);
         }
 
-        void move(int depth, int player, int card, int m, long piece, int px, int py) {
+        void move(int player, int card, int m, long piece, int px, int py) {
             int mx = cardState.playerCards[player][card].moves[m], my = cardState.playerCards[player][card].moves[m + 1];
             if (player == 1) { mx *= -1; my *= -1; }
 
@@ -316,11 +316,11 @@ public class Searcher {
         }
     }
 
-    int negamax(int player, int depth, int alpha, int beta) {
-        if (playerWonPreviousMove(player, depth))
+    int negamax(int player, int depth, int ply, int alpha, int beta) {
+        if (playerWonPreviousMove(player, ply))
             return -WIN_SCORE;
 
-        // maximum depth reached -- evaluate position and return (don't store/retrieve leaf nodes from the TT, it is more efficient to reevaluate them)
+        // no remaining depth to search -- evaluate position and return (don't store/retrieve leaf nodes from the TT, it is more efficient to reevaluate them)
         if (depth < 0)
             return score() * (player == 0 ? 1 : -1);
 
@@ -355,7 +355,7 @@ public class Searcher {
         int bestScore = -INF_SCORE;
         int killerPiece = NN, killerCard = 0, killerMove = 0;
 
-        MoveGenerator mg = moveState[depth].moveGenerator;
+        MoveGenerator mg = moveState[ply].moveGenerator;
         mg.reset(seenState);
 
         // find all next moves
@@ -384,14 +384,14 @@ public class Searcher {
             }
 
             ++fullStatesEvaluated;
-            moveState[depth].move(depth, player, mg.card, mg.move, piece, mg.px, mg.py);
+            moveState[ply].move(player, mg.card, mg.move, piece, mg.px, mg.py);
 
             // recursive call to find node score
-            int score = -negamax(1 - player, depth - 1, -beta, -alpha);
+            int score = -negamax(1 - player, depth - 1, ply + 1, -beta, -alpha);
             if (timer.timeIsUp()) return TIME_OUT_SCORE;
 
             // undo move
-            moveState[depth].unmove(player, mg.card);
+            moveState[ply].unmove(player, mg.card);
 
 //            if (searchDepth - depth < 1) {
 //                String SPACES = "                                                       ";
@@ -406,7 +406,7 @@ public class Searcher {
             if (score > bestScore) {
                 bestScore = score;
 
-                if (depth == searchDepth) {
+                if (ply == 0) {
                     LogMove(mg.px, mg.py, nx, ny, cardState.playerCards[player][mg.card], score);
 //                    System.out.printf(" --> piece=%d, card=%d, move=%d%n", mg.piece, mg.card, mg.move);
                 }
@@ -553,8 +553,8 @@ public class Searcher {
     }
 
     /** @return Whether the previous move (if such exists) resulted in a win. */
-    boolean playerWonPreviousMove(int player, int depth) {
-        return depth < searchDepth && (moveState[depth+1].killedKing || (moveState[depth+1].movedKing && moveState[depth+1].posx == N/2 && moveState[depth+1].posy == (N-1)*(1-player)));
+    boolean playerWonPreviousMove(int player, int ply) {
+        return ply > 0 && (moveState[ply-1].killedKing || (moveState[ply-1].movedKing && moveState[ply-1].posx == N/2 && moveState[ply-1].posy == (N-1)*(1-player)));
     }
 
     /** Score for each position on the board. (Larger score is better.) */

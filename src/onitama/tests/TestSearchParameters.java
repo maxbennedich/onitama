@@ -84,7 +84,7 @@ public class TestSearchParameters {
             throw new RuntimeException(ioe);
         }
 
-        System.out.printf("Loadad %d tests from %s%n", scoreByParameters.size(), file.getAbsolutePath());
+        System.out.printf("Loaded %d tests from %s%n", scoreByParameters.size(), file.getAbsolutePath());
     }
 
     private void storeTestData() {
