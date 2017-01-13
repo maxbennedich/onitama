@@ -53,7 +53,7 @@ public class TestAIVsAI {
 //        }
 
         for (int i = 0; i < 2; ++i)
-            players[i] = new AIPlayer(i, new SearchParameters(20, 6, 1_000_000+(1-i)));
+            players[i] = new AIPlayer(i, new SearchParameters(20, 7, 1_000_000+i));
 
         runTest(100);
     }

@@ -16,6 +16,11 @@ import onitama.ui.Output;
  *   move is needed.
  * - Changed evaluation function from (piece count & king distance) to (piece count & weighted piece position). This resulted in a 90% win rate against
  *   an AI with the old function. That's a better improvement than increasing the search depth by 1!
+ * - Quiescent search. If there are pending captures or wins once the horizon node is reached, keep searching until a quiet stage is reached. This resulted
+ *   in an 80-90% win rate against an AI without quiescent search with the same nominal depth. However, since it searches more states, it uses a bit more
+ *   time. Adjusting for this, i.e. searching at unlimited depth (with iterative deepening) for a fixed period of time per move, the win rate was 63-68%
+ *   (times tested were 30, 50, 100 and 1000 ms / move). In general, wins will be detected in at least one depth less. For the default test case in
+ *   {@link onitama.tests.TestSingleSearch}, it means that the win is found at depth 12 search in 21 seconds rather than depth 13 search in 41 seconds.
  *
  * Ideas:
  * - Generate bit boards for each card/move and for each position.
@@ -331,6 +336,78 @@ public class Searcher {
         }
     }
 
+    final String SPACES = "                                                       ";
+
+    int quiesce(int player, int ply, int qd, int alpha, int beta) {
+        if (playerWonPreviousMove(player, ply)) {
+//            System.out.printf("%sQuei %d: Player %d , alpha = %d, beta = %d, WIN score = %d%n", SPACES.substring(0, ply), ply + 1, player, alpha, beta, -WIN_SCORE);
+            return -WIN_SCORE;
+        }
+
+        // use current evaluation as a lower bound for the score (a higher score is likely possible by making a move)
+        int standPat = score(player);
+//        System.out.printf("%sQuei %d: Player %d , alpha = %d, beta = %d, stand pat = %d%n", SPACES.substring(0, ply), ply + 1, player, alpha, beta, standPat);
+//        if (qd > 0) return standPat;
+        if (standPat > alpha)
+            alpha = standPat;
+        if (alpha >= beta)
+            return standPat;
+
+        MoveGenerator mg = moveState[ply].moveGenerator;
+        mg.reset(TranspositionTable.NO_ENTRY, ply);
+
+        for (boolean moreMoves = true; moreMoves; moreMoves = mg.next()) {
+            long piece = mg.pieces & 3;
+
+            int mx = cardState.playerCards[player][mg.card].moves[mg.move], my = cardState.playerCards[player][mg.card].moves[mg.move + 1];
+            if (player == 1) { mx *= -1; my *= -1; }
+
+            stats.stateEvaluated();
+
+            int nx = mg.px + mx;
+            int ny = mg.py + my;
+
+            if (nx < 0 || ny < 0 || nx >= N || ny >= N) continue; // outside board
+
+            int newPosBit = nx + ny*5;
+            int newPosMask = 1 << newPosBit;
+
+            boolean newPosOccupied = (boardOccupied & newPosMask) != 0;
+
+            // only interested in captures and wins
+            if (!newPosOccupied) {
+                boolean won = nx == N/2 && ny == (N-1)*player;
+                if (!won) continue;
+            } else {
+                int pieceOnNewPos = (int)(boardPieces >> (2*newPosBit));
+                if ((pieceOnNewPos & 1) == player) continue; // trying to move onto oneself
+            }
+
+            stats.fullStateEvaluated(ply);
+            moveState[ply].move(player, mg.card, mg.move, piece, mg.px, mg.py);
+
+//            System.out.printf("%sQuei %d: Player %d playing %s %c%c-%c%c, alpha = %d, beta = %d%n",
+//                    SPACES.substring(0, ply), ply + 1, player, moveState[ply].passedCard.name, 'a'+mg.px, '5'-mg.py, 'a'+nx, '5'-ny, alpha, beta);
+
+            // recursive call to find node score
+            int score = -quiesce(1 - player, ply + 1, qd + 1, -beta, -alpha);
+//            System.out.printf("%sQuei %d: Player %d playing %s %c%c-%c%c, score = %d%n", SPACES.substring(0, ply), ply + 1, player, moveState[ply].passedCard.name, 'a'+mg.px, '5'-mg.py, 'a'+nx, '5'-ny, score);
+            if (timer.timeIsUp()) return TIME_OUT_SCORE;
+
+            // undo move
+            moveState[ply].unmove(player, mg.card);
+
+            if (score > alpha) {
+                alpha = score;
+
+                if (alpha >= beta)
+                    break;
+            }
+        }
+
+        return alpha;
+    }
+
     int negamax(int player, int depth, int ply, int pvIdx, int alpha, int beta) {
         pvLength[ply] = 0; // default to no pv
 
@@ -339,9 +416,11 @@ public class Searcher {
 
 //        if (ply == 9 && depth == -1) depth += 3;
 
-        // no remaining depth to search -- evaluate position and return (don't store/retrieve leaf nodes from the TT, it is more efficient to reevaluate them)
+        // end of nominal search depth -- do a queiscence search phase to play out any pending captures
+        // TODO: is it worth storing/retrieving horizon nodes from the TT, or it is more efficient to reevaluate them?
         if (depth < 0)
-            return score() * (player == 0 ? 1 : -1);
+            return quiesce(player, ply, 0, alpha, beta);
+//        return score(player);
 
         if (ply > maxDepthSearched)
             maxDepthSearched = ply;
@@ -409,8 +488,13 @@ public class Searcher {
             stats.fullStateEvaluated(ply);
             moveState[ply].move(player, mg.card, mg.move, piece, mg.px, mg.py);
 
+//            String SPACES = "                                                       ";
+//            System.out.printf("%sMove %d: Player %d playing %s %c%c-%c%c, bestScore = %d, alpha = %d, beta = %d, alphaOrig = %d%n",
+//                    SPACES.substring(0, ply), ply + 1, player, moveState[ply].passedCard.name, 'a'+mg.px, '5'-mg.py, 'a'+nx, '5'-ny, bestScore, alpha, beta, alphaOrig);
+
             // recursive call to find node score
             int score = -negamax(1 - player, depth - 1, ply + 1, pvNextIdx, -beta, -alpha);
+//            System.out.printf("%sMove %d: Player %d playing %s %c%c-%c%c, score = %d%n", SPACES.substring(0, ply), ply + 1, player, moveState[ply].passedCard.name, 'a'+mg.px, '5'-mg.py, 'a'+nx, '5'-ny, score);
             if (timer.timeIsUp()) return TIME_OUT_SCORE;
 
             // undo move
@@ -590,7 +674,7 @@ public class Searcher {
             0,1,2,1,0,
     };
 
-    int score() {
+    int score(int playerToEvaluate) {
         stats.leafEvaluated();
 
         int pieceScore[] = new int[2];
@@ -610,7 +694,9 @@ public class Searcher {
             pieces >>= 2;
             if (++px == N) { px = 0; ++py; }
         }
-        return (pawnCount[0] - pawnCount[1])*20 + (pieceScore[0] - pieceScore[1]);
+        int score = (pawnCount[0] - pawnCount[1])*20 + (pieceScore[0] - pieceScore[1]);
+//        System.out.printf("Score = %d - %d = %d%n", pieceScore[0], pieceScore[1], score);
+        return score * (playerToEvaluate == 0 ? 1 : -1);
 
 //        return (pawnCount[0] - pawnCount[1])*10 + (kingDist[1] - kingDist[0]);
     }
