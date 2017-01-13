@@ -85,7 +85,7 @@ public class Searcher {
     public TranspositionTable tt;
 
     MoveState[] moveState = new MoveState[MAX_DEPTH];
-    int currentDepthSearched, maxDepthSearched;
+    int currentDepthSearched;
 
     public void setState(int playerTurn, String board, CardState cardState) {
         initPlayer(playerTurn);
@@ -212,7 +212,7 @@ public class Searcher {
 
         int score = NO_SCORE;
         for (currentDepthSearched = 0; currentDepthSearched < nominalDepth; ++currentDepthSearched) {
-            maxDepthSearched = -1;
+            stats.resetDepthSeen();
 
 //          score = negamax(initialPlayer, searchDepth, 99, INF_SCORE);
 //          score = negamax(initialPlayer, searchDepth, -INF_SCORE, -99);
@@ -346,8 +346,7 @@ public class Searcher {
             return -WIN_SCORE;
         }
 
-        if (ply > maxDepthSearched)
-            maxDepthSearched = ply;
+        stats.depthSeen(ply);
 
         // use current evaluation as a lower bound for the score (a higher score is likely possible by making a move)
         int standPat = score(player);
@@ -369,7 +368,7 @@ public class Searcher {
             int mx = cardState.playerCards[player][mg.card].moves[mg.move], my = cardState.playerCards[player][mg.card].moves[mg.move + 1];
             if (player == 1) { mx *= -1; my *= -1; }
 
-            stats.stateEvaluated();
+            stats.quiescentStateEvaluated();
 
             int nx = mg.px + mx;
             int ny = mg.py + my;
@@ -390,7 +389,7 @@ public class Searcher {
                 if ((pieceOnNewPos & 1) == player) continue; // trying to move onto oneself
             }
 
-            stats.fullStateEvaluated(ply);
+            stats.quiescentFullStateEvaluated(ply);
             moveState[ply].move(player, mg.card, mg.move, piece, mg.px, mg.py);
 
 //            System.out.printf("%sQuei %d: Player %d playing %s %c%c-%c%c, alpha = %d, beta = %d%n",
@@ -433,8 +432,7 @@ public class Searcher {
             return quiesce(player, ply, 0, pvIdx, alpha, beta);
 //        return score(player);
 
-        if (ply > maxDepthSearched)
-            maxDepthSearched = ply;
+        stats.depthSeen(ply);
 
         int alphaOrig = alpha;
 
