@@ -85,7 +85,7 @@ public class Searcher {
     public TranspositionTable tt;
 
     MoveState[] moveState = new MoveState[MAX_DEPTH];
-    int maxDepthSearched;
+    int currentDepthSearched, maxDepthSearched;
 
     public void setState(int playerTurn, String board, CardState cardState) {
         initPlayer(playerTurn);
@@ -155,7 +155,7 @@ public class Searcher {
         return getPVMove(0);
     }
 
-    void LogMove(boolean depthComplete, int depth, int score) {
+    void LogMove(boolean depthComplete, int score) {
         double time = timer.elapsedTimeMs() / 1000.0;
         if (!depthComplete && time < 1)
             return;
@@ -169,7 +169,7 @@ public class Searcher {
             pvSb.append(String.format("%s %c%c-%c%c", move.card.name, 'a'+move.px, '5'-move.py, 'a'+move.nx, '5'-move.ny));
         }
 
-        Log(String.format("%2d%2s%s%6d   %s", depth, depthComplete ? "->" : "  ", timeStr, score, pvSb));
+        Log(String.format("%2d%2s%s%6d   %s", currentDepthSearched + 1, depthComplete ? "->" : "  ", timeStr, score, pvSb));
     }
 
     Timer timer;
@@ -211,16 +211,16 @@ public class Searcher {
         Log("depth  time  score  best moves");
 
         int score = NO_SCORE;
-        for (int searchDepth = 0; searchDepth < nominalDepth; ++searchDepth) {
+        for (currentDepthSearched = 0; currentDepthSearched < nominalDepth; ++currentDepthSearched) {
             maxDepthSearched = -1;
 
 //          score = negamax(initialPlayer, searchDepth, 99, INF_SCORE);
 //          score = negamax(initialPlayer, searchDepth, -INF_SCORE, -99);
-            score = negamax(initialPlayer, searchDepth, 0, 0, -INF_SCORE, INF_SCORE);
+            score = negamax(initialPlayer, currentDepthSearched, 0, 0, -INF_SCORE, INF_SCORE);
 
             if (timer.timeIsUp())
                 break;
-            LogMove(true, searchDepth + 1, score);
+            LogMove(true, score);
         }
 
         return score;
@@ -338,11 +338,16 @@ public class Searcher {
 
     final String SPACES = "                                                       ";
 
-    int quiesce(int player, int ply, int qd, int alpha, int beta) {
+    int quiesce(int player, int ply, int qd, int pvIdx, int alpha, int beta) {
+        pvLength[ply] = 0; // default to no pv
+
         if (playerWonPreviousMove(player, ply)) {
 //            System.out.printf("%sQuei %d: Player %d , alpha = %d, beta = %d, WIN score = %d%n", SPACES.substring(0, ply), ply + 1, player, alpha, beta, -WIN_SCORE);
             return -WIN_SCORE;
         }
+
+        if (ply > maxDepthSearched)
+            maxDepthSearched = ply;
 
         // use current evaluation as a lower bound for the score (a higher score is likely possible by making a move)
         int standPat = score(player);
@@ -352,6 +357,8 @@ public class Searcher {
             alpha = standPat;
         if (alpha >= beta)
             return standPat;
+
+        int pvNextIdx = pvIdx + MAX_DEPTH - ply;
 
         MoveGenerator mg = moveState[ply].moveGenerator;
         mg.reset(TranspositionTable.NO_ENTRY, ply);
@@ -390,7 +397,7 @@ public class Searcher {
 //                    SPACES.substring(0, ply), ply + 1, player, moveState[ply].passedCard.name, 'a'+mg.px, '5'-mg.py, 'a'+nx, '5'-ny, alpha, beta);
 
             // recursive call to find node score
-            int score = -quiesce(1 - player, ply + 1, qd + 1, -beta, -alpha);
+            int score = -quiesce(1 - player, ply + 1, qd + 1, pvNextIdx, -beta, -alpha);
 //            System.out.printf("%sQuei %d: Player %d playing %s %c%c-%c%c, score = %d%n", SPACES.substring(0, ply), ply + 1, player, moveState[ply].passedCard.name, 'a'+mg.px, '5'-mg.py, 'a'+nx, '5'-ny, score);
             if (timer.timeIsUp()) return TIME_OUT_SCORE;
 
@@ -399,6 +406,10 @@ public class Searcher {
 
             if (score > alpha) {
                 alpha = score;
+
+                pvTable[pvIdx] = cardState.playerCards[player][mg.card].id + (mg.px + mg.py * N << 4) + (nx + ny * N << 9);
+                System.arraycopy(pvTable, pvNextIdx, pvTable, pvIdx + 1, pvLength[ply + 1]);
+                pvLength[ply] = pvLength[ply + 1] + 1;
 
                 if (alpha >= beta)
                     break;
@@ -414,12 +425,12 @@ public class Searcher {
         if (playerWonPreviousMove(player, ply))
             return -WIN_SCORE;
 
-//        if (ply == 9 && depth == -1) depth += 3;
+        // depth extensions/reductions would go here
 
-        // end of nominal search depth -- do a queiscence search phase to play out any pending captures
+        // end of nominal search depth -- do a queiscent search phase to play out any pending captures
         // TODO: is it worth storing/retrieving horizon nodes from the TT, or it is more efficient to reevaluate them?
         if (depth < 0)
-            return quiesce(player, ply, 0, alpha, beta);
+            return quiesce(player, ply, 0, pvIdx, alpha, beta);
 //        return score(player);
 
         if (ply > maxDepthSearched)
@@ -520,7 +531,7 @@ public class Searcher {
                 }
 
                 if (ply == 0)
-                    LogMove(false, maxDepthSearched + 1, score);
+                    LogMove(false, score);
 
                 killerPiece = mg.piece;
                 killerCard = cardState.playerCards[player][0].id < cardState.playerCards[player][1].id ? mg.card : 1 - mg.card; // 0 = lower card id, 1 = higher (card order may differ)
