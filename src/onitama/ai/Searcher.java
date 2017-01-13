@@ -336,22 +336,16 @@ public class Searcher {
         }
     }
 
-    final String SPACES = "                                                       ";
-
     int quiesce(int player, int ply, int qd, int pvIdx, int alpha, int beta) {
         pvLength[ply] = 0; // default to no pv
 
-        if (playerWonPreviousMove(player, ply)) {
-//            System.out.printf("%sQuei %d: Player %d , alpha = %d, beta = %d, WIN score = %d%n", SPACES.substring(0, ply), ply + 1, player, alpha, beta, -WIN_SCORE);
+        if (playerWonPreviousMove(player, ply))
             return -WIN_SCORE;
-        }
 
         stats.depthSeen(ply);
 
         // use current evaluation as a lower bound for the score (a higher score is likely possible by making a move)
         int standPat = score(player);
-//        System.out.printf("%sQuei %d: Player %d , alpha = %d, beta = %d, stand pat = %d%n", SPACES.substring(0, ply), ply + 1, player, alpha, beta, standPat);
-//        if (qd > 0) return standPat;
         if (standPat > alpha)
             alpha = standPat;
         if (alpha >= beta)
@@ -392,12 +386,8 @@ public class Searcher {
             stats.quiescentFullStateEvaluated(ply);
             moveState[ply].move(player, mg.card, mg.move, piece, mg.px, mg.py);
 
-//            System.out.printf("%sQuei %d: Player %d playing %s %c%c-%c%c, alpha = %d, beta = %d%n",
-//                    SPACES.substring(0, ply), ply + 1, player, moveState[ply].passedCard.name, 'a'+mg.px, '5'-mg.py, 'a'+nx, '5'-ny, alpha, beta);
-
             // recursive call to find node score
             int score = -quiesce(1 - player, ply + 1, qd + 1, pvNextIdx, -beta, -alpha);
-//            System.out.printf("%sQuei %d: Player %d playing %s %c%c-%c%c, score = %d%n", SPACES.substring(0, ply), ply + 1, player, moveState[ply].passedCard.name, 'a'+mg.px, '5'-mg.py, 'a'+nx, '5'-ny, score);
             if (timer.timeIsUp()) return TIME_OUT_SCORE;
 
             // undo move
@@ -497,13 +487,8 @@ public class Searcher {
             stats.fullStateEvaluated(ply);
             moveState[ply].move(player, mg.card, mg.move, piece, mg.px, mg.py);
 
-//            String SPACES = "                                                       ";
-//            System.out.printf("%sMove %d: Player %d playing %s %c%c-%c%c, bestScore = %d, alpha = %d, beta = %d, alphaOrig = %d%n",
-//                    SPACES.substring(0, ply), ply + 1, player, moveState[ply].passedCard.name, 'a'+mg.px, '5'-mg.py, 'a'+nx, '5'-ny, bestScore, alpha, beta, alphaOrig);
-
             // recursive call to find node score
             int score = -negamax(1 - player, depth - 1, ply + 1, pvNextIdx, -beta, -alpha);
-//            System.out.printf("%sMove %d: Player %d playing %s %c%c-%c%c, score = %d%n", SPACES.substring(0, ply), ply + 1, player, moveState[ply].passedCard.name, 'a'+mg.px, '5'-mg.py, 'a'+nx, '5'-ny, score);
             if (timer.timeIsUp()) return TIME_OUT_SCORE;
 
             // undo move
