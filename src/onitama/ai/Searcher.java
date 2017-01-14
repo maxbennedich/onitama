@@ -83,15 +83,11 @@ public class Searcher {
 
     CardState cardState;
 
-//    int[] pieceHistory = new int[256*2];
-//    int[] moveHistory = new int[256*2];
-//    Card[] passedCardHistory = new Card[256];
-
     public Stats stats;
 
     public TranspositionTable tt;
 
-    MoveState[] moveState = new MoveState[MAX_DEPTH];
+    MoveGenerator[] moveGenerator = new MoveGenerator[MAX_DEPTH];
     public int currentDepthSearched;
 
     public void setState(int playerTurn, String board, CardState cardState) {
@@ -106,7 +102,7 @@ public class Searcher {
             zobrist ^= Zobrist.SHIFT_PLAYER; // to make hash values deterministic regardless of initial player
 
         for (int d = 0, player = initialPlayer; d < MAX_DEPTH; ++d, player = 1 - player)
-            moveState[d] = new MoveState(player);
+            moveGenerator[d] = new MoveGenerator(player);
     }
 
     void initCards(CardState cardState) {
@@ -241,113 +237,6 @@ public class Searcher {
         return score;
     }
 
-    class MoveState {
-        final MoveGenerator mg;
-
-        int posx, posy;
-        boolean killedKing, killedPawn, movedKing;
-        long prevZobrist;
-        int prevBoardOccupied;
-        long prevBoardPieces;
-        int prevKingDist;
-
-        int pieceX, pieceY;
-        Card passedCard;
-
-        MoveState(int player) {
-            mg = new MoveGenerator(player);
-        }
-
-        void move() {
-            posx = mg.px + mg.mx;
-            posy = mg.py + mg.my;
-
-            int newPosBit = posx + posy*5;
-            int newPosMask = 1 << newPosBit;
-
-            prevZobrist = zobrist;
-
-            boolean newPosOccupied = (boardOccupied & newPosMask) != 0;
-            killedKing = false;
-            killedPawn = false;
-
-            if (newPosOccupied) {
-                int pieceOnNewPos = (int)(boardPieces >> (2*newPosBit));
-
-                // opponent player piece taken
-                if ((pieceOnNewPos & 2) != 0) {
-                    killedKing = true;
-                } else {
-                    killedPawn = true;
-                    --pawnCount[1-mg.player];
-                }
-
-                zobrist ^= Zobrist.PIECE[1 - mg.player][killedKing ? 1 : 0][newPosBit];
-            }
-
-            prevBoardOccupied = boardOccupied;
-            prevBoardPieces = boardPieces;
-
-            movedKing = ((mg.pieces&3) & 2) == 2;
-
-            prevKingDist = -1;
-            if (movedKing) {
-                if (mg.player == 0) { prevKingDist = kingDist[0]; kingDist[0] = posy + Math.abs(N/2 - posx); }
-                else { prevKingDist = kingDist[1]; kingDist[1] = N - 1 - posy + Math.abs(N/2 - posx); }
-            }
-
-            // remove piece from current position
-            int posBit = mg.px + mg.py*5;
-            int posMask = 1 << posBit;
-            boardOccupied &= ~posMask;
-            long pieceMask = 3L << (2*posBit);
-            boardPieces &= ~pieceMask;
-
-            // add piece to new position
-            boardOccupied |= newPosMask;
-            long newPieceMask = 3L << (2*newPosBit);
-            boardPieces &= ~newPieceMask;
-            boardPieces |= (mg.pieces&3) << (2*newPosBit);
-
-            pieceX = mg.px;
-            pieceY = mg.py;
-
-            zobrist ^= Zobrist.PIECE[mg.player][movedKing ? 1 : 0][posBit];
-            zobrist ^= Zobrist.PIECE[mg.player][movedKing ? 1 : 0][newPosBit];
-
-            zobrist ^= Zobrist.CARD[mg.player][cardState.playerCards[mg.player][mg.card].id];
-            zobrist ^= Zobrist.CARD[mg.player][cardState.nextCard.id];
-
-            zobrist ^= Zobrist.SHIFT_PLAYER;
-
-            Card tmpCard = cardState.nextCard;
-            cardState.nextCard = cardState.playerCards[mg.player][mg.card];
-            cardState.playerCards[mg.player][mg.card] = tmpCard;
-            passedCard = cardState.nextCard;
-
-//          System.out.printf("----------%n%s", getHistory());
-//          System.out.printf("Move %d: Player %d moving piece at %d,%d to %d,%d%n", depth, player, px, py, nx, ny);
-//          printBoard();
-
-        }
-
-        void unmove() {
-            Card tmpCard = cardState.nextCard;
-            cardState.nextCard = cardState.playerCards[mg.player][mg.card];
-            cardState.playerCards[mg.player][mg.card] = tmpCard;
-
-            if (killedPawn)
-                ++pawnCount[1-mg.player];
-
-            if (movedKing)
-                kingDist[mg.player] = prevKingDist;
-
-            boardOccupied = prevBoardOccupied;
-            boardPieces = prevBoardPieces;
-            zobrist = prevZobrist;
-        }
-    }
-
     int quiesce(int player, int ply, int qd, int pvIdx, int alpha, int beta) {
         pvLength[ply] = 0; // default to no pv
 
@@ -365,18 +254,18 @@ public class Searcher {
 
         int pvNextIdx = pvIdx + MAX_DEPTH - ply;
 
-        MoveGenerator mg = moveState[ply].mg;
+        MoveGenerator mg = moveGenerator[ply];
 
         for (boolean moreMoves = mg.reset(TranspositionTable.NO_ENTRY, ply, MoveType.CAPTURE_OR_WIN); moreMoves; moreMoves = mg.next()) {
             stats.quiescenceStateEvaluated(ply);
-            moveState[ply].move();
+            mg.move();
 
             // recursive call to find node score
             int score = -quiesce(1 - player, ply + 1, qd + 1, pvNextIdx, -beta, -alpha);
             if (timer.timeIsUp()) return TIME_OUT_SCORE;
 
             // undo move
-            moveState[ply].unmove();
+            mg.unmove();
 
             if (score > alpha) {
                 alpha = score;
@@ -442,19 +331,19 @@ public class Searcher {
 
         int pvNextIdx = pvIdx + MAX_DEPTH - ply;
 
-        MoveGenerator mg = moveState[ply].mg;
+        MoveGenerator mg = moveGenerator[ply];
 
         // find all next moves
         for (boolean moreMoves = mg.reset(seenState, ply, MoveType.ALL); moreMoves; moreMoves = mg.next()) {
             stats.stateEvaluated(ply);
-            moveState[ply].move();
+            mg.move();
 
             // recursive call to find node score
             int score = -negamax(1 - player, depth - 1, ply + 1, pvNextIdx, -beta, -alpha);
             if (timer.timeIsUp()) return TIME_OUT_SCORE;
 
             // undo move
-            moveState[ply].unmove();
+            mg.unmove();
 
 //            if (searchDepth - depth < 1) {
 //                String SPACES = "                                                       ";
@@ -521,6 +410,18 @@ public class Searcher {
 
         boolean currentMoveIsKiller;
         int killerPiece, killerCard, killerMove;
+
+        // ---
+
+        int posx, posy;
+        boolean killedKing, killedPawn, movedKing;
+        long prevZobrist;
+        int prevBoardOccupied;
+        long prevBoardPieces;
+        int prevKingDist;
+
+        int pieceX, pieceY;
+        Card passedCard;
 
         MoveGenerator(int player) {
             this.player = player;
@@ -642,6 +543,92 @@ public class Searcher {
                 }
             }
         }
+
+        // ---
+
+        void move() {
+            posx = px + mx;
+            posy = py + my;
+
+            int newPosBit = posx + posy*5;
+            int newPosMask = 1 << newPosBit;
+
+            prevZobrist = zobrist;
+
+            boolean newPosOccupied = (boardOccupied & newPosMask) != 0;
+            killedKing = false;
+            killedPawn = false;
+
+            if (newPosOccupied) {
+                int pieceOnNewPos = (int)(boardPieces >> (2*newPosBit));
+
+                // opponent player piece taken
+                if ((pieceOnNewPos & 2) != 0) {
+                    killedKing = true;
+                } else {
+                    killedPawn = true;
+                    --pawnCount[1-player];
+                }
+
+                zobrist ^= Zobrist.PIECE[1 - player][killedKing ? 1 : 0][newPosBit];
+            }
+
+            prevBoardOccupied = boardOccupied;
+            prevBoardPieces = boardPieces;
+
+            movedKing = ((pieces&3) & 2) == 2;
+
+            prevKingDist = -1;
+            if (movedKing) {
+                if (player == 0) { prevKingDist = kingDist[0]; kingDist[0] = posy + Math.abs(N/2 - posx); }
+                else { prevKingDist = kingDist[1]; kingDist[1] = N - 1 - posy + Math.abs(N/2 - posx); }
+            }
+
+            // remove piece from current position
+            int posBit = px + py*5;
+            int posMask = 1 << posBit;
+            boardOccupied &= ~posMask;
+            long pieceMask = 3L << (2*posBit);
+            boardPieces &= ~pieceMask;
+
+            // add piece to new position
+            boardOccupied |= newPosMask;
+            long newPieceMask = 3L << (2*newPosBit);
+            boardPieces &= ~newPieceMask;
+            boardPieces |= (pieces&3) << (2*newPosBit);
+
+            pieceX = px;
+            pieceY = py;
+
+            zobrist ^= Zobrist.PIECE[player][movedKing ? 1 : 0][posBit];
+            zobrist ^= Zobrist.PIECE[player][movedKing ? 1 : 0][newPosBit];
+
+            zobrist ^= Zobrist.CARD[player][cardState.playerCards[player][card].id];
+            zobrist ^= Zobrist.CARD[player][cardState.nextCard.id];
+
+            zobrist ^= Zobrist.SHIFT_PLAYER;
+
+            Card tmpCard = cardState.nextCard;
+            cardState.nextCard = cardState.playerCards[player][card];
+            cardState.playerCards[player][card] = tmpCard;
+            passedCard = cardState.nextCard;
+        }
+
+        void unmove() {
+            Card tmpCard = cardState.nextCard;
+            cardState.nextCard = cardState.playerCards[player][card];
+            cardState.playerCards[player][card] = tmpCard;
+
+            if (killedPawn)
+                ++pawnCount[1-player];
+
+            if (movedKing)
+                kingDist[player] = prevKingDist;
+
+            boardOccupied = prevBoardOccupied;
+            boardPieces = prevBoardPieces;
+            zobrist = prevZobrist;
+        }
     }
 
     public void printBoard() {
@@ -650,24 +637,9 @@ public class Searcher {
 //        System.out.printf("\n\nScore: %d%n%n", score());
     }
 
-    void printHistory(int depth) {
-        System.out.println(getHistory(depth));
-    }
-
-    String getHistory(int depth) {
-        StringBuilder sb = new StringBuilder();
-        for (int d = nominalDepth - 1; d >= depth; --d) {
-            sb.append(String.format("Move %d: Player %d moving piece at %d,%d to %d,%d, using %s%n", d + 1, d&1,
-                    moveState[d].pieceX, moveState[d].pieceY,
-                    moveState[d].posx, moveState[d].posy,
-                    moveState[d].passedCard.name));
-        }
-        return sb.toString();
-    }
-
     /** @return Whether the previous move (if such exists) resulted in a win. */
     boolean playerWonPreviousMove(int player, int ply) {
-        return ply > 0 && (moveState[ply-1].killedKing || (moveState[ply-1].movedKing && moveState[ply-1].posx == N/2 && moveState[ply-1].posy == (N-1)*(1-player)));
+        return ply > 0 && (moveGenerator[ply-1].killedKing || (moveGenerator[ply-1].movedKing && moveGenerator[ply-1].posx == N/2 && moveGenerator[ply-1].posy == (N-1)*(1-player)));
     }
 
     /** Score for each position on the board. (Larger score is better.) */
