@@ -327,7 +327,7 @@ public class Searcher {
         }
 
         int bestScore = -INF_SCORE;
-        int killerPiece = NN, killerCard = 0, killerNewPos = 0;
+        int killerOldPos = NN, killerCard = 0, killerNewPos = 0;
 
         int pvNextIdx = pvIdx + MAX_DEPTH - ply;
 
@@ -367,7 +367,7 @@ public class Searcher {
                 if (ply == 0)
                     logMove(false, score);
 
-                killerPiece = mg.piece;
+                killerOldPos = mg.oldPos;
                 killerCard = cardState.playerCards[player][0].id < cardState.playerCards[player][1].id ? mg.card : 1 - mg.card; // 0 = lower card id, 1 = higher (card order may differ)
                 killerNewPos = mg.newPos;
 
@@ -384,7 +384,7 @@ public class Searcher {
         }
 
         int boundType = bestScore <= alphaOrig ? UPPER_BOUND : (bestScore >= beta ? LOWER_BOUND : EXACT_SCORE);
-        tt.put(zobrist, boundType + (depth << 2) + ((bestScore & 255) << 8) + (killerPiece << 16) + (killerCard << 21) + (killerNewPos << 22));
+        tt.put(zobrist, boundType + (depth << 2) + ((bestScore & 255) << 8) + (killerOldPos << 16) + (killerCard << 21) + (killerNewPos << 22));
 //        System.out.printf(" --> KILLER found (%d): piece=%d, card=%d, move=%d, score=%d%n", searchDepth - depth, killerPiece, killerCard, killerMove, bestScore);
 
         return bestScore;
@@ -406,11 +406,11 @@ public class Searcher {
         int mx, my;
         int nx, ny;
 
-        int piece, card, newPos;
+        int oldPos, card, newPos;
         int move;
 
         boolean currentMoveIsKiller;
-        int killerPiece, killerCard, killerNewPos;
+        int killerOldPos, killerCard, killerNewPos;
 
         // ---
 
@@ -433,17 +433,17 @@ public class Searcher {
             if (seenState != TranspositionTable.NO_ENTRY) {
                 stats.killerMoveHit(ply);
                 currentMoveIsKiller = true;
-                piece = killerPiece = (seenState >> 16) & 31;
+                oldPos = killerOldPos = (seenState >> 16) & 31;
                 int seenCard = (seenState >> 21) & 1;
                 card = killerCard = cardState.playerCards[player][0].id < cardState.playerCards[player][1].id ? seenCard : 1 - seenCard; // 0 = lower card id, 1 = higher (card order may differ)
                 newPos = killerNewPos = (seenState >> 22) & 31;
-                px = piece % 5; py = piece / 5;
+                px = oldPos % 5; py = oldPos / 5;
                 nx = newPos % 5; ny = newPos / 5;
-                pieces = boardPieces >> (piece * 2);
-                occupied = boardOccupied >> piece;
+                pieces = boardPieces >> (oldPos * 2);
+                occupied = boardOccupied >> oldPos;
             } else {
                 moveToFirstPiece();
-                killerPiece = -1;
+                killerOldPos = -1;
                 setMxMy();
             }
 
@@ -468,7 +468,7 @@ public class Searcher {
             pieces = boardPieces;
             px = py = 0;
 
-            piece = card = move = 0;
+            oldPos = card = move = 0;
 
             moveToNextValidPiece();
         }
@@ -476,12 +476,12 @@ public class Searcher {
         private void moveToNextValidPiece() {
             while ((occupied & 1) == 0 || (pieces & 1) != player) {
                 advancePiece();
-                if (occupied == 0) { piece = NN; return; } // no more pieces left
+                if (occupied == 0) { oldPos = NN; return; } // no more pieces left
             }
         }
 
         private void advancePiece() {
-            ++piece;
+            ++oldPos;
             occupied >>= 1;
             pieces >>= 2;
             if (++px == N) { px = 0; ++py; }
@@ -489,14 +489,14 @@ public class Searcher {
         }
 
         boolean next() {
-            if (piece == NN)
+            if (oldPos == NN)
                 return false;
 
             while (true) {
                 next0();
                 setMxMy();
-                if (piece == killerPiece && card == killerCard && newPos == killerNewPos) continue; // don't repeat killer moves
-                if (piece == NN) return false; // no more pieces to test
+                if (oldPos == killerOldPos && card == killerCard && newPos == killerNewPos) continue; // don't repeat killer moves
+                if (oldPos == NN) return false; // no more pieces to test
                 if (moveValid())
                     return true;
             }
@@ -574,10 +574,9 @@ public class Searcher {
             movedKing = ((pieces&3) & 2) == 2;
 
             // remove piece from current position
-            int posBit = px + py*5;
-            int posMask = 1 << posBit;
+            int posMask = 1 << oldPos;
             boardOccupied &= ~posMask;
-            long pieceMask = 3L << (2*posBit);
+            long pieceMask = 3L << (2*oldPos);
             boardPieces &= ~pieceMask;
 
             // add piece to new position
@@ -589,7 +588,7 @@ public class Searcher {
             pieceX = px;
             pieceY = py;
 
-            zobrist ^= Zobrist.PIECE[player][movedKing ? 1 : 0][posBit];
+            zobrist ^= Zobrist.PIECE[player][movedKing ? 1 : 0][oldPos];
             zobrist ^= Zobrist.PIECE[player][movedKing ? 1 : 0][newPos];
 
             zobrist ^= Zobrist.CARD[player][cardState.playerCards[player][card].id];
