@@ -9,7 +9,7 @@ public class Stats {
         long killerMoveHits = 0;
 
         long fullStatesEvaluated = 0;
-        long quiescentFullStatesEvaluated = 0;
+        long quiescenceFullStatesEvaluated = 0;
     }
 
     private PlyStats[] plyStats = new PlyStats[Searcher.MAX_DEPTH];
@@ -18,8 +18,8 @@ public class Stats {
 
     private long statesEvaluated = 0;
     private long fullStatesEvaluated = 0;
-    private long quiescentStatesEvaluated = 0;
-    private long quiescentFullStatesEvaluated = 0;
+    private long quiescenceStatesEvaluated = 0;
+    private long quiescenceFullStatesEvaluated = 0;
     private long leavesEvaluated = 0;
     private long[] playerWinCutoffs = {0, 0};
     private long alphaBetaCutoffs = 0;
@@ -38,8 +38,8 @@ public class Stats {
 
     void stateEvaluated() { ++statesEvaluated; }
     void fullStateEvaluated(int ply) { ++fullStatesEvaluated; ++plyStats[ply].fullStatesEvaluated; }
-    void quiescentStateEvaluated() { ++quiescentStatesEvaluated; }
-    void quiescentFullStateEvaluated(int ply) { ++quiescentFullStatesEvaluated; ++plyStats[ply].quiescentFullStatesEvaluated; }
+    void quiescenceStateEvaluated() { ++quiescenceStatesEvaluated; }
+    void quiescenceFullStateEvaluated(int ply) { ++quiescenceFullStatesEvaluated; ++plyStats[ply].quiescenceFullStatesEvaluated; }
     void leafEvaluated() { ++ leavesEvaluated; }
     void alphaBetaCutoff() { ++ alphaBetaCutoffs; }
     void playerWinCutoff(int player) { ++playerWinCutoffs[player]; }
@@ -50,11 +50,12 @@ public class Stats {
     void killerMoveHit(int ply) { ++plyStats[ply].killerMoveHits; }
 
     public long getFullStatesEvaluated() { return fullStatesEvaluated; }
+    public long getQuiescenceFullStatesEvaluated() { return quiescenceFullStatesEvaluated; }
 
     public void print() {
         System.out.printf("Max depth searched: %d%n", maxDepthSearched + 1);
         System.out.printf("States evaluated: %d / %d%n", fullStatesEvaluated, statesEvaluated);
-        System.out.printf("Quiescent states evaluated: %d / %d%n", quiescentFullStatesEvaluated, quiescentStatesEvaluated);
+        System.out.printf("Quiescence states evaluated: %d / %d%n", quiescenceFullStatesEvaluated, quiescenceStatesEvaluated);
         System.out.printf("Leaves evaluated: %d%n", leavesEvaluated);
         System.out.printf("Player win cutoffs: %d / %d%n", playerWinCutoffs[0], playerWinCutoffs[1]);
         System.out.printf("Alpha/beta cutoffs: %d%n", alphaBetaCutoffs);
@@ -91,10 +92,10 @@ public class Stats {
         stats = new StringBuilder();
         sumHits = sumLookups = 0;
         for (; ply < Searcher.MAX_DEPTH && plyStats[ply].killerMoveLookups > 0; ++ply) {
-            stats.append(String.format(" %d: %.2f ", ply + 1, (double)plyStats[ply].quiescentFullStatesEvaluated/plyStats[ply].killerMoveLookups));
+            stats.append(String.format(" %d: %.2f ", ply + 1, (double)plyStats[ply].quiescenceFullStatesEvaluated/plyStats[ply].killerMoveLookups));
             sumHits += plyStats[ply].fullStatesEvaluated;
             sumLookups += plyStats[ply].killerMoveLookups;
         }
-        System.out.printf("Quiescent branching factor: %s%n", stats);
+        System.out.printf("Quiescence branching factor: %s%n", stats);
     }
 }

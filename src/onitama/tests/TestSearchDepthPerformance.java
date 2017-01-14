@@ -252,6 +252,7 @@ Total time: 54994 ms
 
 (Without TT: 532581558 / 74428 ms)
 
+
 Better static evaluation:
 
 Depth 1, board 0, cards 0: score = 2, states = 13, time = 6 ms
@@ -334,6 +335,89 @@ Depth 11, board 2, cards 1: score = 3, states = 70397962, time = 13035 ms
 Total states: 291875625
 Total time: 71626 ms
 
+
+Quiescence search:
+
+Depth 1, board 0, cards 0: score = 2, states = 13 + 0, time = 0 ms
+Depth 1, board 0, cards 1: score = 2, states = 12 + 0, time = 0 ms
+Depth 1, board 1, cards 0: score = 25, states = 19 + 5, time = 0 ms
+Depth 1, board 1, cards 1: score = 24, states = 17 + 10, time = 0 ms
+Depth 1, board 2, cards 0: score = 2, states = 11 + 1, time = 0 ms
+Depth 1, board 2, cards 1: score = 2, states = 17 + 0, time = 0 ms
+
+Depth 2, board 0, cards 0: score = 0, states = 55 + 5, time = 4 ms
+Depth 2, board 0, cards 1: score = 0, states = 48 + 0, time = 0 ms
+Depth 2, board 1, cards 0: score = 24, states = 69 + 72, time = 0 ms
+Depth 2, board 1, cards 1: score = 22, states = 64 + 46, time = 0 ms
+Depth 2, board 2, cards 0: score = 0, states = 48 + 31, time = 0 ms
+Depth 2, board 2, cards 1: score = 0, states = 66 + 17, time = 0 ms
+
+Depth 3, board 0, cards 0: score = 3, states = 306 + 26, time = 0 ms
+Depth 3, board 0, cards 1: score = 2, states = 274 + 11, time = 0 ms
+Depth 3, board 1, cards 0: score = 26, states = 478 + 152, time = 0 ms
+Depth 3, board 1, cards 1: score = 22, states = 387 + 91, time = 0 ms
+Depth 3, board 2, cards 0: score = 2, states = 314 + 140, time = 0 ms
+Depth 3, board 2, cards 1: score = 2, states = 376 + 56, time = 0 ms
+
+Depth 4, board 0, cards 0: score = 1, states = 1160 + 1036, time = 0 ms
+Depth 4, board 0, cards 1: score = 0, states = 786 + 81, time = 0 ms
+Depth 4, board 1, cards 0: score = 25, states = 2106 + 2905, time = 4 ms
+Depth 4, board 1, cards 1: score = 22, states = 2198 + 2472, time = 4 ms
+Depth 4, board 2, cards 0: score = 1, states = 985 + 1078, time = 4 ms
+Depth 4, board 2, cards 1: score = 0, states = 1254 + 1227, time = 0 ms
+
+Depth 5, board 0, cards 0: score = 3, states = 5846 + 2998, time = 4 ms
+Depth 5, board 0, cards 1: score = 2, states = 3906 + 670, time = 0 ms
+Depth 5, board 1, cards 0: score = 25, states = 6774 + 3606, time = 4 ms
+Depth 5, board 1, cards 1: score = 22, states = 8823 + 4574, time = 4 ms
+Depth 5, board 2, cards 0: score = 1, states = 3490 + 3366, time = 4 ms
+Depth 5, board 2, cards 1: score = 1, states = 7963 + 5926, time = 8 ms
+
+Depth 6, board 0, cards 0: score = 1, states = 29650 + 36920, time = 52 ms
+Depth 6, board 0, cards 1: score = 0, states = 12051 + 3651, time = 8 ms
+Depth 6, board 1, cards 0: score = 24, states = 36979 + 62283, time = 44 ms
+Depth 6, board 1, cards 1: score = 21, states = 40813 + 64904, time = 44 ms
+Depth 6, board 2, cards 0: score = 21, states = 45424 + 104829, time = 56 ms
+Depth 6, board 2, cards 1: score = 1, states = 43245 + 101060, time = 52 ms
+
+Depth 7, board 0, cards 0: score = 1, states = 120827 + 89929, time = 92 ms
+Depth 7, board 0, cards 1: score = 0, states = 59393 + 25779, time = 28 ms
+Depth 7, board 1, cards 0: score = 24, states = 109645 + 74521, time = 52 ms
+Depth 7, board 1, cards 1: score = 22, states = 207234 + 126561, time = 136 ms
+Depth 7, board 2, cards 0: score = 20, states = 80646 + 127591, time = 72 ms
+Depth 7, board 2, cards 1: score = 1, states = 119728 + 231461, time = 128 ms
+
+Depth 8, board 0, cards 0: score = 1, states = 350277 + 587443, time = 380 ms
+Depth 8, board 0, cards 1: score = -1, states = 187687 + 110991, time = 104 ms
+Depth 8, board 1, cards 0: score = 24, states = 650155 + 1296313, time = 600 ms
+Depth 8, board 1, cards 1: score = 22, states = 527859 + 694627, time = 412 ms
+Depth 8, board 2, cards 0: score = 21, states = 211591 + 424042, time = 216 ms
+Depth 8, board 2, cards 1: score = 0, states = 768759 + 2356784, time = 1001 ms
+
+Depth 9, board 0, cards 0: score = 0, states = 1942028 + 2057221, time = 1480 ms
+Depth 9, board 0, cards 1: score = -1, states = 1051051 + 613288, time = 592 ms
+Depth 9, board 1, cards 0: score = 24, states = 1453996 + 1497213, time = 852 ms
+Depth 9, board 1, cards 1: score = 23, states = 2036839 + 1207112, time = 912 ms
+Depth 9, board 2, cards 0: score = 20, states = 615188 + 644975, time = 380 ms
+Depth 9, board 2, cards 1: score = 1, states = 4999349 + 10825627, time = 5244 ms
+
+Depth 10, board 0, cards 0: score = 1, states = 5920673 + 10879758, time = 5868 ms
+Depth 10, board 0, cards 1: score = -1, states = 2612148 + 2160441, time = 1708 ms
+Depth 10, board 1, cards 0: score = 67, states = 6086032 + 8679490, time = 4140 ms
+Depth 10, board 1, cards 1: score = 23, states = 7975548 + 10353192, time = 5364 ms
+Depth 10, board 2, cards 0: score = 25, states = 3903139 + 7771174, time = 3564 ms
+Depth 10, board 2, cards 1: score = 0, states = 12195065 + 41834443, time = 16525 ms
+
+Depth 11, board 0, cards 0: score = 1, states = 34979971 + 40220304, time = 24650 ms
+Depth 11, board 0, cards 1: score = -1, states = 12658183 + 9463111, time = 7801 ms
+Depth 11, board 1, cards 0: score = 68, states = 23320947 + 15725288, time = 10377 ms
+Depth 11, board 1, cards 1: score = 23, states = 20126005 + 15102459, time = 9881 ms
+Depth 11, board 2, cards 0: score = 24, states = 7547602 + 8363577, time = 4380 ms
+Depth 11, board 2, cards 1: score = 1, states = 59869117 + 167571555, time = 68489 ms
+
+Total states: 212942709 + 361520519 = 574463228
+Total time: 191882 ms
+
  */
 public class TestSearchDepthPerformance {
 
@@ -368,7 +452,7 @@ public class TestSearchDepthPerformance {
 
     private void testDepth(int maxDepth) {
         long totalTime = System.currentTimeMillis();
-        long totalStates = 0;
+        long totalStates = 0, totalQStates = 0;
 
         for (int depth = 1; depth <= 11; ++depth) {
             for (int board = 0; board < 3; ++board) {
@@ -384,15 +468,17 @@ public class TestSearchDepthPerformance {
                     time = System.currentTimeMillis() - time;
 
                     long states = searcher.stats.getFullStatesEvaluated();
+                    long qStates = searcher.stats.getQuiescenceFullStatesEvaluated();
                     totalStates += states;
+                    totalQStates += qStates;
 
-                    System.out.printf("Depth %d, board %d, cards %d: score = %d, states = %d, time = %d ms%n", depth, board, cards, score, states, time);
+                    System.out.printf("Depth %d, board %d, cards %d: score = %d, states = %d + %d, time = %d ms%n", depth, board, cards, score, states, qStates, time);
                 }
             }
             System.out.println();
         }
 
-        System.out.printf("Total states: %d%n", totalStates);
+        System.out.printf("Total states: %d + %d = %d%n", totalStates, totalQStates, totalStates+totalQStates);
         System.out.printf("Total time: %d ms%n", System.currentTimeMillis() - totalTime);
     }
 }

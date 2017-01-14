@@ -16,8 +16,8 @@ import onitama.ui.Output;
  *   move is needed.
  * - Changed evaluation function from (piece count & king distance) to (piece count & weighted piece position). This resulted in a 90% win rate against
  *   an AI with the old function. That's a better improvement than increasing the search depth by 1!
- * - Quiescent search. If there are pending captures or wins once the horizon node is reached, keep searching until a quiet stage is reached. This resulted
- *   in an 80-90% win rate against an AI without quiescent search with the same nominal depth. However, since it searches more states, it uses a bit more
+ * - Quiescence search. If there are pending captures or wins once the horizon node is reached, keep searching until a quiet stage is reached. This resulted
+ *   in an 80-90% win rate against an AI without quiescence search with the same nominal depth. However, since it searches more states, it uses a bit more
  *   time. Adjusting for this, i.e. searching at unlimited depth (with iterative deepening) for a fixed period of time per move, the win rate was 63-68%
  *   (times tested were 30, 50, 100 and 1000 ms / move). In general, wins will be detected in at least one depth less. For the default test case in
  *   {@link onitama.tests.TestSingleSearch}, it means that the win is found at depth 12 search in 21 seconds rather than depth 13 search in 41 seconds.
@@ -377,7 +377,7 @@ public class Searcher {
             int mx = cardState.playerCards[player][mg.card].moves[mg.move], my = cardState.playerCards[player][mg.card].moves[mg.move + 1];
             if (player == 1) { mx *= -1; my *= -1; }
 
-            stats.quiescentStateEvaluated();
+            stats.quiescenceStateEvaluated();
 
             int nx = mg.px + mx;
             int ny = mg.py + my;
@@ -398,7 +398,7 @@ public class Searcher {
                 if ((pieceOnNewPos & 1) == player) continue; // trying to move onto oneself
             }
 
-            stats.quiescentFullStateEvaluated(ply);
+            stats.quiescenceFullStateEvaluated(ply);
             moveState[ply].move(player, mg.card, mg.move, piece, mg.px, mg.py);
 
             // recursive call to find node score
