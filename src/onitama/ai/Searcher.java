@@ -604,29 +604,21 @@ public class Searcher {
         boolean moveValid() {
             if (nx < 0 || ny < 0 || nx >= N || ny >= N) return false; // outside board
 
-            if (moveType == MoveType.ALL) {
-                int newPosBit = nx + ny*5;
-                int newPosMask = 1 << newPosBit;
+            int newPosBit = nx + ny*5;
+            int newPosMask = 1 << newPosBit;
 
-                boolean newPosOccupied = (boardOccupied & newPosMask) != 0;
+            boolean newPosOccupied = (boardOccupied & newPosMask) != 0;
 
-                if (newPosOccupied) {
-                    int pieceOnNewPos = (int)(boardPieces >> (2*newPosBit));
-                    if ((pieceOnNewPos & 1) == player) return false; // trying to move onto oneself
-                }
-            } else { // CAPTURE_OR_WIN
-                int newPosBit = nx + ny*5;
-                int newPosMask = 1 << newPosBit;
+            if (newPosOccupied) {
+                int pieceOnNewPos = (int)(boardPieces >> (2*newPosBit));
+                if ((pieceOnNewPos & 1) == player) return false; // trying to move onto oneself
+            }
 
-                boolean newPosOccupied = (boardOccupied & newPosMask) != 0;
-
-                // only interested in captures and wins
+            if (moveType == MoveType.CAPTURE_OR_WIN) {
+                // if not a capture, it has to be a win to be interesting
                 if (!newPosOccupied) {
                     boolean won = nx == N/2 && ny == (N-1)*player;
                     if (!won) return false;
-                } else {
-                    int pieceOnNewPos = (int)(boardPieces >> (2*newPosBit));
-                    if ((pieceOnNewPos & 1) == player) return false; // trying to move onto oneself
                 }
             }
 
