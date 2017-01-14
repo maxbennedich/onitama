@@ -21,16 +21,23 @@ import onitama.ui.Output;
  *   time. Adjusting for this, i.e. searching at unlimited depth (with iterative deepening) for a fixed period of time per move, the win rate was 63-68%
  *   (times tested were 30, 50, 100 and 1000 ms / move). In general, wins will be detected in at least one depth less. For the default test case in
  *   {@link onitama.tests.TestSingleSearch}, it means that the win is found at depth 12 search in 21 seconds rather than depth 13 search in 41 seconds.
+ * - Endgame table. Problematic since there are 131,040 combinations of 5 cards, and it would take a long time to pre-calculate all of them. Possibly a
+ *   few background threads can calculate endgames once the 5 cards are known. Searching the default test case to the end (depth 12), we have that 0.02% of
+ *   all states analyzed have 2 pieces, 0.25% have 3 pieces, 1.4% have 4 pieces, 4.7% have 5 pieces, and 12.1% have 6 pieces. There are 635,400 possible
+ *   board states with 4 pieces, not including card permutations, so it may be feasible to calculate all the endgames up to 4 pieces during runtime, but
+ *   likely not more than that. This might not make much of a difference during general game play. (Can try this by extending the depth when the piece
+ *   count is small.)
  *
  * Ideas:
  * - Generate bit boards for each card/move and for each position.
  * - Optimize entries in TT table (high depth, exact scores)
+ * - Pondering
  */
 public class Searcher {
     static final int NO_SCORE = 1000; // some score that will never occur
     static final int INF_SCORE = 999; // "infinite" alpha beta values
     static final int TIME_OUT_SCORE = 998; // invalid score indicating that a time out occurred during recursion
-    static final int WIN_SCORE = 100;
+    public static final int WIN_SCORE = 100;
 
     public static final int N = 5; // board dimension
     public static final int NN = N*N; // board dimension
@@ -85,7 +92,7 @@ public class Searcher {
     public TranspositionTable tt;
 
     MoveState[] moveState = new MoveState[MAX_DEPTH];
-    int currentDepthSearched;
+    public int currentDepthSearched;
 
     public void setState(int playerTurn, String board, CardState cardState) {
         initPlayer(playerTurn);
@@ -139,7 +146,7 @@ public class Searcher {
         }
     }
 
-    public static void Log(String str) {
+    public static void log(String str) {
         if (LOGGING)
             System.out.println(str);
     }
@@ -155,10 +162,18 @@ public class Searcher {
         return getPVMove(0);
     }
 
-    void LogMove(boolean depthComplete, int score) {
+    void logMove(boolean depthComplete, int score) {
+        if (!LOGGING) return;
+
         double time = timer.elapsedTimeMs() / 1000.0;
         if (!depthComplete && time < 1)
             return;
+
+        log(getMoveString(depthComplete, score));
+    }
+
+    public String getMoveString(boolean depthComplete, int score) {
+        double time = timer.elapsedTimeMs() / 1000.0;
 
         String timeStr = String.format(time < 10 ? "%7.2f" : "%5.0f s", time);
 
@@ -169,7 +184,7 @@ public class Searcher {
             pvSb.append(String.format("%s %c%c-%c%c", move.card.name, 'a'+move.px, '5'-move.py, 'a'+move.nx, '5'-move.ny));
         }
 
-        Log(String.format("%2d%2s%s%6d   %s", currentDepthSearched + 1, depthComplete ? "->" : "  ", timeStr, score, pvSb));
+        return String.format("%2d%2s%s%6d   %s", currentDepthSearched + 1, depthComplete ? "->" : "  ", timeStr, score, pvSb);
     }
 
     Timer timer;
@@ -208,10 +223,10 @@ public class Searcher {
     public int start(long maxTimeMs) {
         timer = new Timer(maxTimeMs);
 
-        Log("depth  time  score  best moves");
+        log("depth  time  score  best moves");
 
         int score = NO_SCORE;
-        for (currentDepthSearched = 0; currentDepthSearched < nominalDepth; ++currentDepthSearched) {
+        for (currentDepthSearched = 0; currentDepthSearched < nominalDepth && Math.abs(score) != WIN_SCORE; ++currentDepthSearched) {
             stats.resetDepthSeen();
 
 //          score = negamax(initialPlayer, searchDepth, 99, INF_SCORE);
@@ -220,7 +235,7 @@ public class Searcher {
 
             if (timer.timeIsUp())
                 break;
-            LogMove(true, score);
+            logMove(true, score);
         }
 
         return score;
@@ -514,7 +529,7 @@ public class Searcher {
                 }
 
                 if (ply == 0)
-                    LogMove(false, score);
+                    logMove(false, score);
 
                 killerPiece = mg.piece;
                 killerCard = cardState.playerCards[player][0].id < cardState.playerCards[player][1].id ? mg.card : 1 - mg.card; // 0 = lower card id, 1 = higher (card order may differ)
