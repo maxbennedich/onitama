@@ -208,10 +208,10 @@ public class Searcher {
             if (timeUp)
                 return true;
 
-            if (stats.getFullStatesEvaluated() < nextStatesEvaluated)
+            if (stats.getStatesEvaluated() < nextStatesEvaluated)
                 return false;
 
-            nextStatesEvaluated = stats.getFullStatesEvaluated() + TIMEOUT_CHECK_FREQUENCY_STATES;
+            nextStatesEvaluated = stats.getStatesEvaluated() + TIMEOUT_CHECK_FREQUENCY_STATES;
             return timeUp = elapsedTimeMs() > maxTimeMs;
         }
 
@@ -242,7 +242,7 @@ public class Searcher {
     }
 
     class MoveState {
-        final MoveGenerator moveGenerator;
+        final MoveGenerator mg;
 
         int posx, posy;
         boolean killedKing, killedPawn, movedKing;
@@ -255,15 +255,12 @@ public class Searcher {
         Card passedCard;
 
         MoveState(int player) {
-            moveGenerator = new MoveGenerator(player);
+            mg = new MoveGenerator(player);
         }
 
-        void move(int player, int card, int m, long piece, int px, int py) {
-            int mx = cardState.playerCards[player][card].moves[m], my = cardState.playerCards[player][card].moves[m + 1];
-            if (player == 1) { mx *= -1; my *= -1; }
-
-            posx = px + mx;
-            posy = py + my;
+        void move() {
+            posx = mg.px + mg.mx;
+            posy = mg.py + mg.my;
 
             int newPosBit = posx + posy*5;
             int newPosMask = 1 << newPosBit;
@@ -282,25 +279,25 @@ public class Searcher {
                     killedKing = true;
                 } else {
                     killedPawn = true;
-                    --pawnCount[1-player];
+                    --pawnCount[1-mg.player];
                 }
 
-                zobrist ^= Zobrist.PIECE[1 - player][killedKing ? 1 : 0][newPosBit];
+                zobrist ^= Zobrist.PIECE[1 - mg.player][killedKing ? 1 : 0][newPosBit];
             }
 
             prevBoardOccupied = boardOccupied;
             prevBoardPieces = boardPieces;
 
-            movedKing = (piece & 2) == 2;
+            movedKing = ((mg.pieces&3) & 2) == 2;
 
             prevKingDist = -1;
             if (movedKing) {
-                if (player == 0) { prevKingDist = kingDist[0]; kingDist[0] = posy + Math.abs(N/2 - posx); }
+                if (mg.player == 0) { prevKingDist = kingDist[0]; kingDist[0] = posy + Math.abs(N/2 - posx); }
                 else { prevKingDist = kingDist[1]; kingDist[1] = N - 1 - posy + Math.abs(N/2 - posx); }
             }
 
             // remove piece from current position
-            int posBit = px + py*5;
+            int posBit = mg.px + mg.py*5;
             int posMask = 1 << posBit;
             boardOccupied &= ~posMask;
             long pieceMask = 3L << (2*posBit);
@@ -310,22 +307,22 @@ public class Searcher {
             boardOccupied |= newPosMask;
             long newPieceMask = 3L << (2*newPosBit);
             boardPieces &= ~newPieceMask;
-            boardPieces |= piece << (2*newPosBit);
+            boardPieces |= (mg.pieces&3) << (2*newPosBit);
 
-            pieceX = px;
-            pieceY = py;
+            pieceX = mg.px;
+            pieceY = mg.py;
 
-            zobrist ^= Zobrist.PIECE[player][movedKing ? 1 : 0][posBit];
-            zobrist ^= Zobrist.PIECE[player][movedKing ? 1 : 0][newPosBit];
+            zobrist ^= Zobrist.PIECE[mg.player][movedKing ? 1 : 0][posBit];
+            zobrist ^= Zobrist.PIECE[mg.player][movedKing ? 1 : 0][newPosBit];
 
-            zobrist ^= Zobrist.CARD[player][cardState.playerCards[player][card].id];
-            zobrist ^= Zobrist.CARD[player][cardState.nextCard.id];
+            zobrist ^= Zobrist.CARD[mg.player][cardState.playerCards[mg.player][mg.card].id];
+            zobrist ^= Zobrist.CARD[mg.player][cardState.nextCard.id];
 
             zobrist ^= Zobrist.SHIFT_PLAYER;
 
             Card tmpCard = cardState.nextCard;
-            cardState.nextCard = cardState.playerCards[player][card];
-            cardState.playerCards[player][card] = tmpCard;
+            cardState.nextCard = cardState.playerCards[mg.player][mg.card];
+            cardState.playerCards[mg.player][mg.card] = tmpCard;
             passedCard = cardState.nextCard;
 
 //          System.out.printf("----------%n%s", getHistory());
@@ -334,16 +331,16 @@ public class Searcher {
 
         }
 
-        void unmove(int player, int card) {
+        void unmove() {
             Card tmpCard = cardState.nextCard;
-            cardState.nextCard = cardState.playerCards[player][card];
-            cardState.playerCards[player][card] = tmpCard;
+            cardState.nextCard = cardState.playerCards[mg.player][mg.card];
+            cardState.playerCards[mg.player][mg.card] = tmpCard;
 
             if (killedPawn)
-                ++pawnCount[1-player];
+                ++pawnCount[1-mg.player];
 
             if (movedKing)
-                kingDist[player] = prevKingDist;
+                kingDist[mg.player] = prevKingDist;
 
             boardOccupied = prevBoardOccupied;
             boardPieces = prevBoardPieces;
@@ -368,50 +365,23 @@ public class Searcher {
 
         int pvNextIdx = pvIdx + MAX_DEPTH - ply;
 
-        MoveGenerator mg = moveState[ply].moveGenerator;
-        mg.reset(TranspositionTable.NO_ENTRY, ply);
+        MoveGenerator mg = moveState[ply].mg;
 
-        for (boolean moreMoves = true; moreMoves; moreMoves = mg.next()) {
-            long piece = mg.pieces & 3;
-
-            int mx = cardState.playerCards[player][mg.card].moves[mg.move], my = cardState.playerCards[player][mg.card].moves[mg.move + 1];
-            if (player == 1) { mx *= -1; my *= -1; }
-
-            stats.quiescenceStateEvaluated();
-
-            int nx = mg.px + mx;
-            int ny = mg.py + my;
-
-            if (nx < 0 || ny < 0 || nx >= N || ny >= N) continue; // outside board
-
-            int newPosBit = nx + ny*5;
-            int newPosMask = 1 << newPosBit;
-
-            boolean newPosOccupied = (boardOccupied & newPosMask) != 0;
-
-            // only interested in captures and wins
-            if (!newPosOccupied) {
-                boolean won = nx == N/2 && ny == (N-1)*player;
-                if (!won) continue;
-            } else {
-                int pieceOnNewPos = (int)(boardPieces >> (2*newPosBit));
-                if ((pieceOnNewPos & 1) == player) continue; // trying to move onto oneself
-            }
-
-            stats.quiescenceFullStateEvaluated(ply);
-            moveState[ply].move(player, mg.card, mg.move, piece, mg.px, mg.py);
+        for (boolean moreMoves = mg.reset(TranspositionTable.NO_ENTRY, ply, MoveType.CAPTURE_OR_WIN); moreMoves; moreMoves = mg.next()) {
+            stats.quiescenceStateEvaluated(ply);
+            moveState[ply].move();
 
             // recursive call to find node score
             int score = -quiesce(1 - player, ply + 1, qd + 1, pvNextIdx, -beta, -alpha);
             if (timer.timeIsUp()) return TIME_OUT_SCORE;
 
             // undo move
-            moveState[ply].unmove(player, mg.card);
+            moveState[ply].unmove();
 
             if (score > alpha) {
                 alpha = score;
 
-                pvTable[pvIdx] = cardState.playerCards[player][mg.card].id + (mg.px + mg.py * N << 4) + (nx + ny * N << 9);
+                pvTable[pvIdx] = cardState.playerCards[player][mg.card].id + (mg.px + mg.py * N << 4) + (mg.nx + mg.ny * N << 9);
                 System.arraycopy(pvTable, pvNextIdx, pvTable, pvIdx + 1, pvLength[ply + 1]);
                 pvLength[ply] = pvLength[ply + 1] + 1;
 
@@ -472,42 +442,19 @@ public class Searcher {
 
         int pvNextIdx = pvIdx + MAX_DEPTH - ply;
 
-        MoveGenerator mg = moveState[ply].moveGenerator;
-        mg.reset(seenState, ply);
+        MoveGenerator mg = moveState[ply].mg;
 
         // find all next moves
-        for (boolean moreMoves = true; moreMoves; moreMoves = mg.next()) {
-            long piece = mg.pieces & 3;
-
-            int mx = cardState.playerCards[player][mg.card].moves[mg.move], my = cardState.playerCards[player][mg.card].moves[mg.move + 1];
-            if (player == 1) { mx *= -1; my *= -1; }
-
-            stats.stateEvaluated();
-
-            int nx = mg.px + mx;
-            int ny = mg.py + my;
-
-            if (nx < 0 || ny < 0 || nx >= N || ny >= N) continue; // outside board
-
-            int newPosBit = nx + ny*5;
-            int newPosMask = 1 << newPosBit;
-
-            boolean newPosOccupied = (boardOccupied & newPosMask) != 0;
-
-            if (newPosOccupied) {
-                int pieceOnNewPos = (int)(boardPieces >> (2*newPosBit));
-                if ((pieceOnNewPos & 1) == player) continue; // trying to move onto oneself
-            }
-
-            stats.fullStateEvaluated(ply);
-            moveState[ply].move(player, mg.card, mg.move, piece, mg.px, mg.py);
+        for (boolean moreMoves = mg.reset(seenState, ply, MoveType.ALL); moreMoves; moreMoves = mg.next()) {
+            stats.stateEvaluated(ply);
+            moveState[ply].move();
 
             // recursive call to find node score
             int score = -negamax(1 - player, depth - 1, ply + 1, pvNextIdx, -beta, -alpha);
             if (timer.timeIsUp()) return TIME_OUT_SCORE;
 
             // undo move
-            moveState[ply].unmove(player, mg.card);
+            moveState[ply].unmove();
 
 //            if (searchDepth - depth < 1) {
 //                String SPACES = "                                                       ";
@@ -523,7 +470,7 @@ public class Searcher {
                 if (bestScore > alpha) {
                     alpha = bestScore;
 
-                    pvTable[pvIdx] = cardState.playerCards[player][mg.card].id + (mg.px + mg.py * N << 4) + (nx + ny * N << 9);
+                    pvTable[pvIdx] = cardState.playerCards[player][mg.card].id + (mg.px + mg.py * N << 4) + (mg.nx + mg.ny * N << 9);
                     System.arraycopy(pvTable, pvNextIdx, pvTable, pvIdx + 1, pvLength[ply + 1]);
                     pvLength[ply] = pvLength[ply + 1] + 1;
                 }
@@ -554,51 +501,75 @@ public class Searcher {
         return bestScore;
     }
 
+    enum MoveType {
+        ALL,
+        CAPTURE_OR_WIN,
+    }
+
     class MoveGenerator {
         final int player;
+
+        MoveType moveType;
 
         int occupied;
         long pieces;
         int px, py;
+        int mx, my;
+        int nx, ny;
 
         int piece, card, move;
 
-        int killerMoves;
+        boolean currentMoveIsKiller;
         int killerPiece, killerCard, killerMove;
 
         MoveGenerator(int player) {
             this.player = player;
         }
 
-        void reset(int seenState, int ply) {
-//            System.out.printf("depth=%d, searchdepth=%d, kill=%s, state=%x%n", (seenState >> 2) & 255, searchDepth, kill, seenState);
+        boolean reset(int seenState, int ply, MoveType moveType) {
+            this.moveType = moveType;
+
             stats.killerMoveLookup(ply);
             if (seenState != TranspositionTable.NO_ENTRY) {
                 stats.killerMoveHit(ply);
-                killerMoves = 1;
+                currentMoveIsKiller = true;
                 piece = killerPiece = (seenState >> 16) & 31;
                 int seenCard = (seenState >> 21) & 1;
                 card = killerCard = cardState.playerCards[player][0].id < cardState.playerCards[player][1].id ? seenCard : 1 - seenCard; // 0 = lower card id, 1 = higher (card order may differ)
                 move = killerMove = ((seenState >> 22) & 3)*2;
-//                if (((seenState >> 2) & 255) == 4 && piece == 22 && card == 1 && move == 0)
-//                    System.out.printf("Trying killer move at depth %d, piece %d, card %d, move %d%n", (seenState >> 2) & 255, piece, card, move);
-//                if (((seenState >> 2) & 255) == searchDepth-1) { piece = killerPiece = 7; card = killerCard = 0; move = killerMove = 0; /*System.out.printf("Trying killer move at depth %d, piece %d, card %d, move %d%n", (seenState >> 2) & 255, piece, card, move);*/ }
                 px = piece % 5; py = piece / 5;
                 pieces = boardPieces >> (piece * 2);
                 occupied = boardOccupied >> piece;
             } else {
-                killerMoves = 0;
-
-                occupied = boardOccupied;
-                pieces = boardPieces;
-                px = py = 0;
-
-                piece = card = move = 0;
+                moveToFirstPiece();
                 killerPiece = -1;
             }
 
+            setMxMy();
+
+            if (!moveValid())
+                return next();
+            return true;
+        }
+
+        void setMxMy() {
+            mx = cardState.playerCards[player][card].moves[move];
+            my = cardState.playerCards[player][card].moves[move + 1];
+            if (player == 1) { mx *= -1; my *= -1; }
+            nx = px + mx;
+            ny = py + my;
+        }
+
+        private void moveToFirstPiece() {
+            currentMoveIsKiller = false;
+
+            occupied = boardOccupied;
+            pieces = boardPieces;
+            px = py = 0;
+
+            piece = card = move = 0;
+
             moveToNextValidPiece();
-//            System.out.printf("Returning piece = %d%n", piece);
         }
 
         private void moveToNextValidPiece() {
@@ -613,21 +584,59 @@ public class Searcher {
             occupied >>= 1;
             pieces >>= 2;
             if (++px == N) { px = 0; ++py; }
+            card = move = 0;
         }
 
         boolean next() {
-            if (--killerMoves == 0) {
-                occupied = boardOccupied;
-                pieces = boardPieces;
-                px = py = 0;
+            if (piece == NN)
+                return false;
 
-                piece = card = move = 0;
+            while (true) {
+                next0();
+                if (piece == killerPiece && card == killerCard && move == killerMove) continue; // don't repeat killer moves
+                if (piece == NN) return false; // no more pieces to test
+                setMxMy();
+                if (moveValid())
+                    return true;
+            }
+        }
 
-                moveToNextValidPiece();
+        boolean moveValid() {
+            if (nx < 0 || ny < 0 || nx >= N || ny >= N) return false; // outside board
+
+            if (moveType == MoveType.ALL) {
+                int newPosBit = nx + ny*5;
+                int newPosMask = 1 << newPosBit;
+
+                boolean newPosOccupied = (boardOccupied & newPosMask) != 0;
+
+                if (newPosOccupied) {
+                    int pieceOnNewPos = (int)(boardPieces >> (2*newPosBit));
+                    if ((pieceOnNewPos & 1) == player) return false; // trying to move onto oneself
+                }
+            } else { // CAPTURE_OR_WIN
+                int newPosBit = nx + ny*5;
+                int newPosMask = 1 << newPosBit;
+
+                boolean newPosOccupied = (boardOccupied & newPosMask) != 0;
+
+                // only interested in captures and wins
+                if (!newPosOccupied) {
+                    boolean won = nx == N/2 && ny == (N-1)*player;
+                    if (!won) return false;
+                } else {
+                    int pieceOnNewPos = (int)(boardPieces >> (2*newPosBit));
+                    if ((pieceOnNewPos & 1) == player) return false; // trying to move onto oneself
+                }
+            }
+
+            return true;
+        }
+
+        void next0() {
+            if (currentMoveIsKiller) {
+                moveToFirstPiece();
             } else {
-                if (piece == NN)
-                    return false;
-
                 // advance iterator
                 move += 2;
                 if (move >= cardState.playerCards[player][card].moves.length) {
@@ -640,11 +649,6 @@ public class Searcher {
                     }
                 }
             }
-
-            if (piece == killerPiece && card == killerCard && move == killerMove)
-                return next();
-
-            return piece < NN;
         }
     }
 

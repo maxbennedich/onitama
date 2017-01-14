@@ -467,8 +467,8 @@ public class TestSearchDepthPerformance {
                     int score = searcher.start(Integer.MAX_VALUE);
                     time = System.currentTimeMillis() - time;
 
-                    long states = searcher.stats.getFullStatesEvaluated();
-                    long qStates = searcher.stats.getQuiescenceFullStatesEvaluated();
+                    long states = searcher.stats.getStatesEvaluated();
+                    long qStates = searcher.stats.getQuiescenceStatesEvaluated();
                     totalStates += states;
                     totalQStates += qStates;
 
