@@ -66,6 +66,7 @@ public class Searcher {
     int initialPlayer;
 
     int[] bitboardPlayer = { 0, 0 };
+    int[] bitboardKing = { 0, 0 };
     long boardPieces = 0;
     long zobrist = 0;
 
@@ -128,8 +129,8 @@ public class Searcher {
                 if (board.charAt(y*5+x) != '.') {
                     if (board.charAt(y*5+x) == 'w') { bitboardPlayer[0] |= bit; /* |= 0 not needed */ zobrist ^= Zobrist.PIECE[0][0][y*5+x]; }
                     else if (board.charAt(y*5+x) == 'b') { bitboardPlayer[1] |= bit; boardPieces |= piece; zobrist ^= Zobrist.PIECE[1][0][y*5+x]; }
-                    else if (board.charAt(y*5+x) == 'W') { bitboardPlayer[0] |= bit; boardPieces |= piece*2; zobrist ^= Zobrist.PIECE[0][1][y*5+x]; }
-                    else if (board.charAt(y*5+x) == 'B') { bitboardPlayer[1] |= bit; boardPieces |= piece*3; zobrist ^= Zobrist.PIECE[1][1][y*5+x]; }
+                    else if (board.charAt(y*5+x) == 'W') { bitboardPlayer[0] |= bit; bitboardKing[0] |= bit; boardPieces |= piece*2; zobrist ^= Zobrist.PIECE[0][1][y*5+x]; }
+                    else if (board.charAt(y*5+x) == 'B') { bitboardPlayer[1] |= bit; bitboardKing[1] |= bit; boardPieces |= piece*3; zobrist ^= Zobrist.PIECE[1][1][y*5+x]; }
                 }
             }
         }
@@ -233,7 +234,7 @@ public class Searcher {
     int quiesce(int player, int ply, int qd, int pvIdx, int alpha, int beta) {
         pvLength[ply] = 0; // default to no pv
 
-        if (playerWonPreviousMove(player, ply))
+        if (won(1-player))
             return -WIN_SCORE;
 
         stats.depthSeen(ply);
@@ -279,7 +280,7 @@ public class Searcher {
     int negamax(int player, int depth, int ply, int pvIdx, int alpha, int beta) {
         pvLength[ply] = 0; // default to no pv
 
-        if (playerWonPreviousMove(player, ply))
+        if (won(1-player))
             return -WIN_SCORE;
 
         // depth extensions/reductions would go here
@@ -450,8 +451,8 @@ public class Searcher {
         boolean killedKing, movedKing;
         int newPosCopy;
         long prevZobrist;
-        int prevBitboardP0;
-        int prevBitboardP1;
+        int prevBitboardP0, prevBitboardP1;
+        int prevBitboardK0, prevBitboardK1;
         long prevBoardPieces;
 
         void move(int m) {
@@ -459,6 +460,11 @@ public class Searcher {
             int newPosMask = 1 << newPos[m];
 
             prevZobrist = zobrist;
+            prevBitboardP0 = bitboardPlayer[0];
+            prevBitboardP1 = bitboardPlayer[1];
+            prevBoardPieces = boardPieces;
+            prevBitboardK0 = bitboardKing[0];
+            prevBitboardK1 = bitboardKing[1];
 
             killedKing = false;
 
@@ -466,15 +472,14 @@ public class Searcher {
                 int pieceOnNewPos = (int)(boardPieces >> (2*newPos[m]));
 
                 // opponent player piece taken
-                if ((pieceOnNewPos & 2) != 0)
+                if ((pieceOnNewPos & 2) != 0) {
                     killedKing = true;
+                    bitboardKing[1-player] &= ~newPosMask;
+                }
 
                 zobrist ^= Zobrist.PIECE[1 - player][killedKing ? 1 : 0][newPos[m]];
             }
 
-            prevBitboardP0 = bitboardPlayer[0];
-            prevBitboardP1 = bitboardPlayer[1];
-            prevBoardPieces = boardPieces;
 
             long pieceOnOldPos = (boardPieces >> (2*oldPos[m])) & 3;
             movedKing = (pieceOnOldPos & 2) == 2;
@@ -482,12 +487,17 @@ public class Searcher {
             // remove piece from current position
             int posMask = 1 << oldPos[m];
             bitboardPlayer[player] &= ~posMask;
+            if (movedKing)
+                bitboardKing[player] &= ~posMask;
             long pieceMask = 3L << (2*oldPos[m]);
             boardPieces &= ~pieceMask;
 
             // add piece to new position
             bitboardPlayer[player] |= newPosMask;
-            bitboardPlayer[1-player] &= ~newPosMask;
+            bitboardPlayer[1-player] &= ~newPosMask; // if opponent piece taken
+            if (movedKing) {
+                bitboardKing[player] |= newPosMask;
+            }
             long newPieceMask = 3L << (2*newPos[m]);
             boardPieces &= ~newPieceMask;
             boardPieces |= pieceOnOldPos << (2*newPos[m]);
@@ -512,6 +522,8 @@ public class Searcher {
 
             bitboardPlayer[0] = prevBitboardP0;
             bitboardPlayer[1] = prevBitboardP1;
+            bitboardKing[0] = prevBitboardK0;
+            bitboardKing[1] = prevBitboardK1;
             boardPieces = prevBoardPieces;
             zobrist = prevZobrist;
         }
@@ -523,9 +535,9 @@ public class Searcher {
 //        System.out.printf("\n\nScore: %d%n%n", score());
     }
 
-    /** @return Whether the previous move (if such exists) resulted in a win. */
-    boolean playerWonPreviousMove(int player, int ply) {
-        return ply > 0 && (moveGenerator[ply-1].killedKing || (moveGenerator[ply-1].movedKing && moveGenerator[ply-1].newPosCopy == N/2 + (player == 0 ? N*(N-1) : 0)));
+    /** @return Whether the current board is a win for the given player. */
+    boolean won(int player) {
+        return bitboardKing[1-player] == 0 || bitboardKing[player] == GameDefinition.WIN_BITMASK[player];
     }
 
     /** Score for each position on the board. (Larger score is better.) */
