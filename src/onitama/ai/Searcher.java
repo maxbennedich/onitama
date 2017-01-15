@@ -67,16 +67,11 @@ public class Searcher {
 
     int[] bitboardPlayer = { 0, 0 };
     int[] bitboardKing = { 0, 0 };
-    long boardPieces = 0;
     long zobrist = 0;
 
     /** Triangular table of principal variations (best moves) for each ply. */
     int[] pvTable = new int[MAX_DEPTH * (MAX_DEPTH + 1) / 2];
     int[] pvLength = new int[MAX_DEPTH];
-
-//    byte[][] board = new byte[N][N];
-//    boolean[][] pieceAlive = new boolean[2][N];
-//    int[][] piecePos = new int[2][N*2];
 
     CardState cardState;
 
@@ -111,26 +106,13 @@ public class Searcher {
     }
 
     void initBoard(String board) {
-/*        pieceCount[0] = pieceCount[1] = 1;
-        for (int y = 0; y < N; ++y) {
-            pieceAlive[0][y] = pieceAlive[1][y] = true;
-            for (int x = 0; x < N; ++x) {
-                if (board.charAt(y*5+x) == '.') board[y][x] = 0;
-                else if (board.charAt(y*5+x) == 'w') { board[y][x] = (byte)(1 + (pieceCount[0] << 2)); piecePos[0][pieceCount[0]*2] = x; piecePos[0][pieceCount[0]*2+1] = y; ++pieceCount[0]; }
-                else if (board.charAt(y*5+x) == 'W') { board[y][x] = 1; piecePos[0][0] = x; piecePos[0][1] = y; }
-                else if (board.charAt(y*5+x) == 'b') { board[y][x] = (byte)(3 + (pieceCount[1] << 2)); piecePos[1][pieceCount[1]*2] = x; piecePos[1][pieceCount[1]*2+1] = y; ++pieceCount[1]; }
-                else if (board.charAt(y*5+x) == 'B') { board[y][x] = 3; piecePos[1][0] = x; piecePos[1][1] = y; }
-            }
-        }*/
-
-        long piece = 1;
         for (int y = 0, bit = 1; y < N; ++y) {
-            for (int x = 0; x < N; ++x, bit *= 2, piece *= 4) {
+            for (int x = 0; x < N; ++x, bit *= 2) {
                 if (board.charAt(y*5+x) != '.') {
-                    if (board.charAt(y*5+x) == 'w') { bitboardPlayer[0] |= bit; /* |= 0 not needed */ zobrist ^= Zobrist.PIECE[0][0][y*5+x]; }
-                    else if (board.charAt(y*5+x) == 'b') { bitboardPlayer[1] |= bit; boardPieces |= piece; zobrist ^= Zobrist.PIECE[1][0][y*5+x]; }
-                    else if (board.charAt(y*5+x) == 'W') { bitboardPlayer[0] |= bit; bitboardKing[0] |= bit; boardPieces |= piece*2; zobrist ^= Zobrist.PIECE[0][1][y*5+x]; }
-                    else if (board.charAt(y*5+x) == 'B') { bitboardPlayer[1] |= bit; bitboardKing[1] |= bit; boardPieces |= piece*3; zobrist ^= Zobrist.PIECE[1][1][y*5+x]; }
+                    if (board.charAt(y*5+x) == 'w') { bitboardPlayer[0] |= bit; zobrist ^= Zobrist.PIECE[0][0][y*5+x]; }
+                    else if (board.charAt(y*5+x) == 'b') { bitboardPlayer[1] |= bit; zobrist ^= Zobrist.PIECE[1][0][y*5+x]; }
+                    else if (board.charAt(y*5+x) == 'W') { bitboardPlayer[0] |= bit; bitboardKing[0] |= bit; zobrist ^= Zobrist.PIECE[0][1][y*5+x]; }
+                    else if (board.charAt(y*5+x) == 'B') { bitboardPlayer[1] |= bit; bitboardKing[1] |= bit; zobrist ^= Zobrist.PIECE[1][1][y*5+x]; }
                 }
             }
         }
@@ -448,12 +430,10 @@ public class Searcher {
         }
 
         // ----------------
-        boolean killedKing, movedKing;
         int newPosCopy;
         long prevZobrist;
         int prevBitboardP0, prevBitboardP1;
         int prevBitboardK0, prevBitboardK1;
-        long prevBoardPieces;
 
         void move(int m) {
             newPosCopy = newPos[m];
@@ -462,45 +442,32 @@ public class Searcher {
             prevZobrist = zobrist;
             prevBitboardP0 = bitboardPlayer[0];
             prevBitboardP1 = bitboardPlayer[1];
-            prevBoardPieces = boardPieces;
             prevBitboardK0 = bitboardKing[0];
             prevBitboardK1 = bitboardKing[1];
 
-            killedKing = false;
-
             if ((bitboardPlayer[1-player] & newPosMask) != 0) {
-                int pieceOnNewPos = (int)(boardPieces >> (2*newPos[m]));
-
-                // opponent player piece taken
-                if ((pieceOnNewPos & 2) != 0) {
-                    killedKing = true;
+                // opponent player piece captured
+                int capturedPiece = (bitboardKing[1-player] & newPosMask) != 0 ? 1 : 0;
+                if (capturedPiece == 1)
                     bitboardKing[1-player] &= ~newPosMask;
-                }
 
-                zobrist ^= Zobrist.PIECE[1 - player][killedKing ? 1 : 0][newPos[m]];
+                zobrist ^= Zobrist.PIECE[1 - player][capturedPiece][newPos[m]];
             }
 
-
-            long pieceOnOldPos = (boardPieces >> (2*oldPos[m])) & 3;
-            movedKing = (pieceOnOldPos & 2) == 2;
+            int posMask = 1 << oldPos[m];
 
             // remove piece from current position
-            int posMask = 1 << oldPos[m];
             bitboardPlayer[player] &= ~posMask;
-            if (movedKing)
-                bitboardKing[player] &= ~posMask;
-            long pieceMask = 3L << (2*oldPos[m]);
-            boardPieces &= ~pieceMask;
 
             // add piece to new position
             bitboardPlayer[player] |= newPosMask;
             bitboardPlayer[1-player] &= ~newPosMask; // if opponent piece taken
+
+            boolean movedKing = bitboardKing[player] == posMask;
             if (movedKing) {
+                bitboardKing[player] &= ~posMask;
                 bitboardKing[player] |= newPosMask;
             }
-            long newPieceMask = 3L << (2*newPos[m]);
-            boardPieces &= ~newPieceMask;
-            boardPieces |= pieceOnOldPos << (2*newPos[m]);
 
             zobrist ^= Zobrist.PIECE[player][movedKing ? 1 : 0][oldPos[m]];
             zobrist ^= Zobrist.PIECE[player][movedKing ? 1 : 0][newPos[m]];
@@ -524,13 +491,12 @@ public class Searcher {
             bitboardPlayer[1] = prevBitboardP1;
             bitboardKing[0] = prevBitboardK0;
             bitboardKing[1] = prevBitboardK1;
-            boardPieces = prevBoardPieces;
             zobrist = prevZobrist;
         }
     }
 
     public void printBoard() {
-        Output.printBoard(bitboardPlayer[0] | bitboardPlayer[1], boardPieces);
+        Output.printBoard(bitboardPlayer, bitboardKing);
 
 //        System.out.printf("\n\nScore: %d%n%n", score());
     }

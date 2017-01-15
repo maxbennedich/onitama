@@ -502,6 +502,7 @@ Total states: 216950244 + 389712616 = 606662860
 Total time: 211525 ms
 Total time: 125053 ms (bitboard optimizations)
 Total time: 91660 ms (more efficient scoring)
+Total time: 86833 ms (simplified bitboards)
 
  */
 public class TestSearchDepthPerformance {

@@ -32,12 +32,16 @@ public class Output {
             System.out.print(string);
     }
 
-    public static void printBoard(int boardOccupied, long boardPieces) {
+    public static void printBoard(int[] bitboardPlayer, int[] bitboardKing) {
         println("  +---+---+---+---+---+");
-        for (int y = 0, bit = 1, piece = 0; y < Searcher.N; ++y) {
+        for (int y = 0, bit = 1; y < Searcher.N; ++y) {
             printf("%d |", Searcher.N-y);
-            for (int x = 0; x < Searcher.N; ++x, bit *= 2, piece += 2) {
-                int c = (boardOccupied & bit) == 0 ? 0 : 1 + ((int)(boardPieces >> piece) & 3);
+            for (int x = 0; x < Searcher.N; ++x, bit *= 2) {
+                int c = 0;
+                if ((bitboardKing[0] & bit) != 0) c = 3;
+                else if ((bitboardKing[1] & bit) != 0) c = 4;
+                else if ((bitboardPlayer[0] & bit) != 0) c = 1;
+                else if ((bitboardPlayer[1] & bit) != 0) c = 2;
                 printf(" %c |", markers[c]);
             }
             println("\n  +---+---+---+---+---+");
