@@ -245,7 +245,7 @@ public class Searcher {
             if (score > alpha) {
                 alpha = score;
 
-                pvTable[pvIdx] = ((cardBits >> 4 + player * 8 + mg.cardUsed[move] * 4) & 15) + (mg.oldPos[move] << 4) + (mg.newPos[move] << 9);
+                pvTable[pvIdx] = mg.cardUsed[move] + (mg.oldPos[move] << 4) + (mg.newPos[move] << 9);
                 System.arraycopy(pvTable, pvNextIdx, pvTable, pvIdx + 1, pvLength[ply + 1]);
                 pvLength[ply] = pvLength[ply + 1] + 1;
 
@@ -334,7 +334,7 @@ public class Searcher {
                 if (bestScore > alpha) {
                     alpha = bestScore;
 
-                    pvTable[pvIdx] = ((cardBits >> 4 + player * 8 + mg.cardUsed[move] * 4) & 15) + (mg.oldPos[move] << 4) + (mg.newPos[move] << 9);
+                    pvTable[pvIdx] = mg.cardUsed[move] + (mg.oldPos[move] << 4) + (mg.newPos[move] << 9);
                     System.arraycopy(pvTable, pvNextIdx, pvTable, pvIdx + 1, pvLength[ply + 1]);
                     pvLength[ply] = pvLength[ply + 1] + 1;
                 }
@@ -343,9 +343,7 @@ public class Searcher {
                     logMove(false, score);
 
                 killerOldPos = mg.oldPos[move];
-                int card0 = ((cardBits >> 4 + player * 8) & 15);
-                int card1 = ((cardBits >> 4 + player * 8 + 4) & 15);
-                killerCard = card0 < card1 ? mg.cardUsed[move] : 1 - mg.cardUsed[move]; // 0 = lower card id, 1 = higher (card order may differ)
+                killerCard = mg.cardUsed[move];
                 killerNewPos = mg.newPos[move];
 
                 // see if we've reached a state where continued evaluation can not possibly affect the outcome
@@ -361,7 +359,7 @@ public class Searcher {
         }
 
         int boundType = bestScore <= alphaOrig ? UPPER_BOUND : (bestScore >= beta ? LOWER_BOUND : EXACT_SCORE);
-        tt.put(zobrist, boundType + (depth << 2) + ((bestScore & 255) << 8) + (killerOldPos << 16) + (killerCard << 21) + (killerNewPos << 22));
+        tt.put(zobrist, boundType + (depth << 2) + ((bestScore & 255) << 8) + (killerOldPos << 16) + (killerCard << 21) + (killerNewPos << 25));
 //        System.out.printf(" --> KILLER found (%d): piece=%d, card=%d, move=%d, score=%d%n", searchDepth - depth, killerPiece, killerCard, killerMove, bestScore);
 
         return bestScore;
@@ -393,11 +391,8 @@ public class Searcher {
             if (seenState != TranspositionTable.NO_ENTRY) {
                 stats.killerMoveHit(ply);
                 oldPos[moves] = killerOldPos = (seenState >> 16) & 31;
-                int seenCard = (seenState >> 21) & 1;
-                int card0 = ((cardBits >> 4 + player * 8) & 15);
-                int card1 = ((cardBits >> 4 + player * 8 + 4) & 15);
-                cardUsed[moves] = killerCard = card0 < card1 ? seenCard : 1 - seenCard; // 0 = lower card id, 1 = higher (card order may differ)
-                newPos[moves] = killerNewPos = (seenState >> 22) & 31;
+                cardUsed[moves] = killerCard = (seenState >> 21) & 15;
+                newPos[moves] = killerNewPos = (seenState >> 25) & 31;
                 ++moves;
             }
 
@@ -407,7 +402,8 @@ public class Searcher {
                 p += pz + 1;
 
                 for (int card = 0; card < GameDefinition.CARDS_PER_PLAYER; ++card) {
-                    int moveBitmask = Card.CARDS[((cardBits >> 4 + player * 8 + card * 4) & 15)].moveBitmask[player][p];
+                    int cardId = (cardBits >> 4 + player * 8 + card * 4) & 15;
+                    int moveBitmask = Card.CARDS[cardId].moveBitmask[player][p];
 
                     if (moveType == MoveType.CAPTURE_OR_WIN)
                         moveBitmask &= (bitboardPlayer[1-player] | GameDefinition.WIN_BITMASK[player]); // only captures and wins
@@ -419,11 +415,11 @@ public class Searcher {
                         if ((npz = Integer.numberOfTrailingZeros(moveBitmask)) == 32) break;
                         np += npz + 1;
 
-                        if (p == killerOldPos && card == killerCard && np == killerNewPos) continue; // killer move
+                        if (p == killerOldPos && cardId == killerCard && np == killerNewPos) continue; // killer move
 
                         // add move
                         oldPos[moves] = p;
-                        cardUsed[moves] = card;
+                        cardUsed[moves] = cardId; // store card idx as well 0/1
                         newPos[moves] = np;
                         ++moves;
                     }
@@ -470,17 +466,17 @@ public class Searcher {
             zobrist ^= Zobrist.PIECE[player][movedPiece][oldPos[m]];
             zobrist ^= Zobrist.PIECE[player][movedPiece][newPos[m]];
 
-            int cardUsedPos = 4 + player * 8 + cardUsed[m] * 4;
-            int cardUsedId = ((cardBits >> cardUsedPos) & 15);
+            int card0 = (cardBits >> 4 + player * 8) & 15;
+            int cardUsedPos = 4 + player * 8 + (cardUsed[m] == card0 ? 0 : 4);
             int nextCardId = cardBits & 15;
-            zobrist ^= Zobrist.CARD[player][cardUsedId];
+            zobrist ^= Zobrist.CARD[player][cardUsed[m]];
             zobrist ^= Zobrist.CARD[player][nextCardId];
 
             zobrist ^= Zobrist.SHIFT_PLAYER;
 
             prevCardBits = cardBits;
             cardBits = cardBits & ~(15 + (15 << cardUsedPos));
-            cardBits |= cardUsedId + (nextCardId << cardUsedPos);
+            cardBits |= cardUsed[m] + (nextCardId << cardUsedPos);
         }
 
         void unmove(int m) {
