@@ -9,8 +9,6 @@ public class Card {
 
     public static final Card[] CARDS = new Card[NR_CARDS];
 
-    public static final int[][][] MOVE_BITMASK = new int[NR_CARDS][2][Searcher.NN];
-
     public static Card Tiger = new Card("Tiger", new int[] {0,-2, 0,1});
     public static Card Crab = new Card("Crab", new int[] {0,-1, -2,0, 2,0});
     public static Card Monkey = new Card("Monkey", new int[] {-1,-1, -1,1, 1,-1, 1,1});
@@ -32,36 +30,30 @@ public class Card {
     public int[] moves;
     public int id;
 
+    public final int[][] moveBitmask = new int[2][Searcher.NN];
+
     private Card(String name, int[] moves) {
         this.name = name;
         this.moves = moves;
         this.id = cardId++;
 
         CARDS[id] = this;
-    }
 
-    static {
-        createMoveBitmasks();
-    }
+        /** For each combination of player, and board square, create a bitmask of valid moves. */
+        for (int player = 0; player < 2; ++player) {
+            for (int p = 0; p < Searcher.NN; ++p) {
+                int bitmask = 0;
 
-    /** For each combination of card, player, and board square, create a bitmask of valid moves. */
-    static void createMoveBitmasks() {
-        for (Card card : CARDS) {
-            for (int player = 0; player < 2; ++player) {
-                for (int p = 0; p < Searcher.NN; ++p) {
-                    int bitmask = 0;
-
-                    int px = p % Searcher.N, py = p / Searcher.N;
-                    for (int move = 0; move < card.moves.length; move += 2) {
-                        int mx = card.moves[move], my = card.moves[move+1];
-                        if (player == 1) { mx *= -1; my *= -1; }
-                        int nx = px + mx, ny = py + my;
-                        if (nx >= 0 && nx < Searcher.N && ny >= 0 && ny < Searcher.N)
-                            bitmask |= 1 << nx + ny * Searcher.N;
-                    }
-
-                    MOVE_BITMASK[card.id][player][p] = bitmask;
+                int px = p % Searcher.N, py = p / Searcher.N;
+                for (int move = 0; move < moves.length; move += 2) {
+                    int mx = moves[move], my = moves[move+1];
+                    if (player == 1) { mx *= -1; my *= -1; }
+                    int nx = px + mx, ny = py + my;
+                    if (nx >= 0 && nx < Searcher.N && ny >= 0 && ny < Searcher.N)
+                        bitmask |= 1 << nx + ny * Searcher.N;
                 }
+
+                moveBitmask[player][p] = bitmask;
             }
         }
     }

@@ -66,6 +66,7 @@ public class Searcher {
     int initialPlayer;
 
     int boardOccupied = 0;
+    int[] bitboardPlayer = { 0, 0 };
     long boardPieces = 0;
     long zobrist = 0;
 
@@ -102,7 +103,7 @@ public class Searcher {
             zobrist ^= Zobrist.SHIFT_PLAYER; // to make hash values deterministic regardless of initial player
 
         for (int d = 0, player = initialPlayer; d < MAX_DEPTH; ++d, player = 1 - player)
-            moveGenerator[d] = new MoveGenerator(player);
+            moveGenerator[d] = new MoveGenerator(d, player);
     }
 
     void initCards(CardState cardState) {
@@ -133,10 +134,10 @@ public class Searcher {
             for (int x = 0; x < N; ++x, bit *= 2, piece *= 4) {
                 if (board.charAt(y*5+x) != '.') {
                     boardOccupied |= bit;
-                    if (board.charAt(y*5+x) == 'w') { /* |= 0 not needed */ zobrist ^= Zobrist.PIECE[0][0][y*5+x]; ++pawnCount[0]; }
-                    else if (board.charAt(y*5+x) == 'b') { boardPieces |= piece; zobrist ^= Zobrist.PIECE[1][0][y*5+x]; ++pawnCount[1]; }
-                    else if (board.charAt(y*5+x) == 'W') { boardPieces |= piece*2; zobrist ^= Zobrist.PIECE[0][1][y*5+x]; kingDist[0] = y + Math.abs(N/2 - x); }
-                    else if (board.charAt(y*5+x) == 'B') { boardPieces |= piece*3; zobrist ^= Zobrist.PIECE[1][1][y*5+x]; kingDist[1] = N - 1 - y + Math.abs(N/2 - x); }
+                    if (board.charAt(y*5+x) == 'w') { bitboardPlayer[0] |= bit; /* |= 0 not needed */ zobrist ^= Zobrist.PIECE[0][0][y*5+x]; ++pawnCount[0]; }
+                    else if (board.charAt(y*5+x) == 'b') { bitboardPlayer[1] |= bit; boardPieces |= piece; zobrist ^= Zobrist.PIECE[1][0][y*5+x]; ++pawnCount[1]; }
+                    else if (board.charAt(y*5+x) == 'W') { bitboardPlayer[0] |= bit; boardPieces |= piece*2; zobrist ^= Zobrist.PIECE[0][1][y*5+x]; kingDist[0] = y + Math.abs(N/2 - x); }
+                    else if (board.charAt(y*5+x) == 'B') { bitboardPlayer[1] |= bit; boardPieces |= piece*3; zobrist ^= Zobrist.PIECE[1][1][y*5+x]; kingDist[1] = N - 1 - y + Math.abs(N/2 - x); }
                 }
             }
         }
@@ -255,22 +256,23 @@ public class Searcher {
         int pvNextIdx = pvIdx + MAX_DEPTH - ply;
 
         MoveGenerator mg = moveGenerator[ply];
+        mg.generate(TranspositionTable.NO_ENTRY, MoveType.CAPTURE_OR_WIN);
 
-        for (boolean moreMoves = mg.reset(TranspositionTable.NO_ENTRY, ply, MoveType.CAPTURE_OR_WIN); moreMoves; moreMoves = mg.next()) {
+        for (int move = 0; move < mg.moves; ++move) {
             stats.quiescenceStateEvaluated(ply);
-            mg.move();
+            mg.move(move);
 
             // recursive call to find node score
             int score = -quiesce(1 - player, ply + 1, qd + 1, pvNextIdx, -beta, -alpha);
             if (timer.timeIsUp()) return TIME_OUT_SCORE;
 
             // undo move
-            mg.unmove();
+            mg.unmove(move);
 
             if (score > alpha) {
                 alpha = score;
 
-                pvTable[pvIdx] = cardState.playerCards[player][mg.card].id + (mg.px + mg.py * N << 4) + (mg.newPos << 9);
+                pvTable[pvIdx] = cardState.playerCards[player][mg.cardUsed[move]].id + (mg.oldPos[move] << 4) + (mg.newPos[move] << 9);
                 System.arraycopy(pvTable, pvNextIdx, pvTable, pvIdx + 1, pvLength[ply + 1]);
                 pvLength[ply] = pvLength[ply + 1] + 1;
 
@@ -332,18 +334,18 @@ public class Searcher {
         int pvNextIdx = pvIdx + MAX_DEPTH - ply;
 
         MoveGenerator mg = moveGenerator[ply];
+        mg.generate(seenState, MoveType.ALL);
 
-        // find all next moves
-        for (boolean moreMoves = mg.reset(seenState, ply, MoveType.ALL); moreMoves; moreMoves = mg.next()) {
+        for (int move = 0; move < mg.moves; ++move) {
             stats.stateEvaluated(ply);
-            mg.move();
+            mg.move(move);
 
             // recursive call to find node score
             int score = -negamax(1 - player, depth - 1, ply + 1, pvNextIdx, -beta, -alpha);
             if (timer.timeIsUp()) return TIME_OUT_SCORE;
 
             // undo move
-            mg.unmove();
+            mg.unmove(move);
 
 //            if (searchDepth - depth < 1) {
 //                String SPACES = "                                                       ";
@@ -359,7 +361,7 @@ public class Searcher {
                 if (bestScore > alpha) {
                     alpha = bestScore;
 
-                    pvTable[pvIdx] = cardState.playerCards[player][mg.card].id + (mg.px + mg.py * N << 4) + (mg.newPos << 9);
+                    pvTable[pvIdx] = cardState.playerCards[player][mg.cardUsed[move]].id + (mg.oldPos[move] << 4) + (mg.newPos[move] << 9);
                     System.arraycopy(pvTable, pvNextIdx, pvTable, pvIdx + 1, pvLength[ply + 1]);
                     pvLength[ply] = pvLength[ply + 1] + 1;
                 }
@@ -367,9 +369,9 @@ public class Searcher {
                 if (ply == 0)
                     logMove(false, score);
 
-                killerOldPos = mg.oldPos;
-                killerCard = cardState.playerCards[player][0].id < cardState.playerCards[player][1].id ? mg.card : 1 - mg.card; // 0 = lower card id, 1 = higher (card order may differ)
-                killerNewPos = mg.newPos;
+                killerOldPos = mg.oldPos[move];
+                killerCard = cardState.playerCards[player][0].id < cardState.playerCards[player][1].id ? mg.cardUsed[move] : 1 - mg.cardUsed[move]; // 0 = lower card id, 1 = higher (card order may differ)
+                killerNewPos = mg.newPos[move];
 
                 // see if we've reached a state where continued evaluation can not possibly affect the outcome
                 if (score == WIN_SCORE) {
@@ -396,157 +398,74 @@ public class Searcher {
     }
 
     class MoveGenerator {
+        final int ply;
         final int player;
 
-        MoveType moveType;
+        int[] oldPos = new int[40], cardUsed = new int[40], newPos = new int[40];
+        int moves;
 
-        int occupied;
-        long pieces;
-        int px, py;
-        int mx, my;
-        int nx, ny;
-
-        int oldPos, card, newPos;
-        int move;
-
-        boolean currentMoveIsKiller;
-        int killerOldPos, killerCard, killerNewPos;
-
-        // ---
-
-        boolean killedKing, killedPawn, movedKing;
-        long prevZobrist;
-        int prevBoardOccupied;
-        long prevBoardPieces;
-
-        int pieceX, pieceY;
-        Card passedCard;
-
-        MoveGenerator(int player) {
+        MoveGenerator(int ply, int player) {
+            this.ply = ply;
             this.player = player;
         }
 
-        boolean reset(int seenState, int ply, MoveType moveType) {
-            this.moveType = moveType;
+        void generate(int seenState, MoveType moveType) {
+            moves = 0;
 
+            // add killer move
+            int killerOldPos = -1, killerCard = -1, killerNewPos = -1;
             stats.killerMoveLookup(ply);
             if (seenState != TranspositionTable.NO_ENTRY) {
                 stats.killerMoveHit(ply);
-                currentMoveIsKiller = true;
-                oldPos = killerOldPos = (seenState >> 16) & 31;
+                oldPos[moves] = killerOldPos = (seenState >> 16) & 31;
                 int seenCard = (seenState >> 21) & 1;
-                card = killerCard = cardState.playerCards[player][0].id < cardState.playerCards[player][1].id ? seenCard : 1 - seenCard; // 0 = lower card id, 1 = higher (card order may differ)
-                newPos = killerNewPos = (seenState >> 22) & 31;
-                px = oldPos % 5; py = oldPos / 5;
-                nx = newPos % 5; ny = newPos / 5;
-                pieces = boardPieces >> (oldPos * 2);
-                occupied = boardOccupied >> oldPos;
-            } else {
-                moveToFirstPiece();
-                killerOldPos = -1;
-                setMxMy();
+                cardUsed[moves] = killerCard = cardState.playerCards[player][0].id < cardState.playerCards[player][1].id ? seenCard : 1 - seenCard; // 0 = lower card id, 1 = higher (card order may differ)
+                newPos[moves] = killerNewPos = (seenState >> 22) & 31;
+                ++moves;
             }
 
-            if (!moveValid())
-                return next();
-            return true;
-        }
+            for (int playerBitmask = bitboardPlayer[player], p = -1, pz = -1; ; ) {
+                playerBitmask >>= (pz+1);
+                if ((pz = Integer.numberOfTrailingZeros(playerBitmask)) == 32) break;
+                p += pz + 1;
 
-        void setMxMy() {
-            mx = cardState.playerCards[player][card].moves[move];
-            my = cardState.playerCards[player][card].moves[move + 1];
-            if (player == 1) { mx *= -1; my *= -1; }
-            nx = px + mx;
-            ny = py + my;
-            newPos = nx + ny * Searcher.N;
-        }
+                for (int card = 0; card < GameDefinition.CARDS_PER_PLAYER; ++card) {
+                    int moveBitmask = cardState.playerCards[player][card].moveBitmask[player][p];
 
-        private void moveToFirstPiece() {
-            currentMoveIsKiller = false;
+                    if (moveType == MoveType.CAPTURE_OR_WIN)
+                        moveBitmask &= (bitboardPlayer[1-player] | GameDefinition.WIN_BITMASK[player]); // only captures and wins
 
-            occupied = boardOccupied;
-            pieces = boardPieces;
-            px = py = 0;
+                    moveBitmask &= ~bitboardPlayer[player]; // exclude moves onto oneself
 
-            oldPos = card = move = 0;
+                    for (int np = -1, npz = -1; ; ) {
+                        moveBitmask >>= (npz+1);
+                        if ((npz = Integer.numberOfTrailingZeros(moveBitmask)) == 32) break;
+                        np += npz + 1;
 
-            moveToNextValidPiece();
-        }
+                        if (p == killerOldPos && card == killerCard && np == killerNewPos) continue; // killer move
 
-        private void moveToNextValidPiece() {
-            while ((occupied & 1) == 0 || (pieces & 1) != player) {
-                advancePiece();
-                if (occupied == 0) { oldPos = NN; return; } // no more pieces left
-            }
-        }
-
-        private void advancePiece() {
-            ++oldPos;
-            occupied >>= 1;
-            pieces >>= 2;
-            if (++px == N) { px = 0; ++py; }
-            card = move = 0;
-        }
-
-        boolean next() {
-            if (oldPos == NN)
-                return false;
-
-            while (true) {
-                next0();
-                setMxMy();
-                if (oldPos == killerOldPos && card == killerCard && newPos == killerNewPos) continue; // don't repeat killer moves
-                if (oldPos == NN) return false; // no more pieces to test
-                if (moveValid())
-                    return true;
-            }
-        }
-
-        boolean moveValid() {
-            if (nx < 0 || ny < 0 || nx >= N || ny >= N) return false; // outside board
-
-            int newPosMask = 1 << newPos;
-
-            boolean newPosOccupied = (boardOccupied & newPosMask) != 0;
-
-            if (newPosOccupied) {
-                int pieceOnNewPos = (int)(boardPieces >> (2*newPos));
-                if ((pieceOnNewPos & 1) == player) return false; // trying to move onto oneself
-            }
-
-            if (moveType == MoveType.CAPTURE_OR_WIN) {
-                // if not a capture, it has to be a win to be interesting
-                if (!newPosOccupied) {
-                    boolean won = newPos == N/2 + (player == 0 ? 0 : N*(N-1));
-                    if (!won) return false;
-                }
-            }
-
-            return true;
-        }
-
-        void next0() {
-            if (currentMoveIsKiller) {
-                moveToFirstPiece();
-            } else {
-                // advance iterator
-                move += 2;
-                if (move >= cardState.playerCards[player][card].moves.length) {
-                    move = 0;
-                    ++card;
-                    if (card >= GameDefinition.CARDS_PER_PLAYER) {
-                        card = 0;
-                        advancePiece();
-                        moveToNextValidPiece();
+                        // add move
+                        oldPos[moves] = p;
+                        cardUsed[moves] = card;
+                        newPos[moves] = np;
+                        ++moves;
                     }
                 }
             }
         }
 
-        // ---
+        // ----------------
+        boolean killedKing, killedPawn, movedKing;
+        int newPosCopy;
+        long prevZobrist;
+        int prevBoardOccupied;
+        int prevBitboardP0;
+        int prevBitboardP1;
+        long prevBoardPieces;
 
-        void move() {
-            int newPosMask = 1 << newPos;
+        void move(int m) {
+            newPosCopy = newPos[m];
+            int newPosMask = 1 << newPos[m];
 
             prevZobrist = zobrist;
 
@@ -555,7 +474,7 @@ public class Searcher {
             killedPawn = false;
 
             if (newPosOccupied) {
-                int pieceOnNewPos = (int)(boardPieces >> (2*newPos));
+                int pieceOnNewPos = (int)(boardPieces >> (2*newPos[m]));
 
                 // opponent player piece taken
                 if ((pieceOnNewPos & 2) != 0) {
@@ -565,52 +484,56 @@ public class Searcher {
                     --pawnCount[1-player];
                 }
 
-                zobrist ^= Zobrist.PIECE[1 - player][killedKing ? 1 : 0][newPos];
+                zobrist ^= Zobrist.PIECE[1 - player][killedKing ? 1 : 0][newPos[m]];
             }
 
             prevBoardOccupied = boardOccupied;
+            prevBitboardP0 = bitboardPlayer[0];
+            prevBitboardP1 = bitboardPlayer[1];
             prevBoardPieces = boardPieces;
 
-            movedKing = ((pieces&3) & 2) == 2;
+            long pieceOnOldPos = (boardPieces >> (2*oldPos[m])) & 3;
+            movedKing = (pieceOnOldPos & 2) == 2;
 
             // remove piece from current position
-            int posMask = 1 << oldPos;
+            int posMask = 1 << oldPos[m];
             boardOccupied &= ~posMask;
-            long pieceMask = 3L << (2*oldPos);
+            bitboardPlayer[player] &= ~posMask;
+            long pieceMask = 3L << (2*oldPos[m]);
             boardPieces &= ~pieceMask;
 
             // add piece to new position
             boardOccupied |= newPosMask;
-            long newPieceMask = 3L << (2*newPos);
+            bitboardPlayer[player] |= newPosMask;
+            bitboardPlayer[1-player] &= ~newPosMask;
+            long newPieceMask = 3L << (2*newPos[m]);
             boardPieces &= ~newPieceMask;
-            boardPieces |= (pieces&3) << (2*newPos);
+            boardPieces |= pieceOnOldPos << (2*newPos[m]);
 
-            pieceX = px;
-            pieceY = py;
+            zobrist ^= Zobrist.PIECE[player][movedKing ? 1 : 0][oldPos[m]];
+            zobrist ^= Zobrist.PIECE[player][movedKing ? 1 : 0][newPos[m]];
 
-            zobrist ^= Zobrist.PIECE[player][movedKing ? 1 : 0][oldPos];
-            zobrist ^= Zobrist.PIECE[player][movedKing ? 1 : 0][newPos];
-
-            zobrist ^= Zobrist.CARD[player][cardState.playerCards[player][card].id];
+            zobrist ^= Zobrist.CARD[player][cardState.playerCards[player][cardUsed[m]].id];
             zobrist ^= Zobrist.CARD[player][cardState.nextCard.id];
 
             zobrist ^= Zobrist.SHIFT_PLAYER;
 
             Card tmpCard = cardState.nextCard;
-            cardState.nextCard = cardState.playerCards[player][card];
-            cardState.playerCards[player][card] = tmpCard;
-            passedCard = cardState.nextCard;
+            cardState.nextCard = cardState.playerCards[player][cardUsed[m]];
+            cardState.playerCards[player][cardUsed[m]] = tmpCard;
         }
 
-        void unmove() {
+        void unmove(int m) {
             Card tmpCard = cardState.nextCard;
-            cardState.nextCard = cardState.playerCards[player][card];
-            cardState.playerCards[player][card] = tmpCard;
+            cardState.nextCard = cardState.playerCards[player][cardUsed[m]];
+            cardState.playerCards[player][cardUsed[m]] = tmpCard;
 
             if (killedPawn)
                 ++pawnCount[1-player];
 
             boardOccupied = prevBoardOccupied;
+            bitboardPlayer[0] = prevBitboardP0;
+            bitboardPlayer[1] = prevBitboardP1;
             boardPieces = prevBoardPieces;
             zobrist = prevZobrist;
         }
@@ -624,7 +547,7 @@ public class Searcher {
 
     /** @return Whether the previous move (if such exists) resulted in a win. */
     boolean playerWonPreviousMove(int player, int ply) {
-        return ply > 0 && (moveGenerator[ply-1].killedKing || (moveGenerator[ply-1].movedKing && moveGenerator[ply-1].newPos == N/2 + (player == 0 ? N*(N-1) : 0)));
+        return ply > 0 && (moveGenerator[ply-1].killedKing || (moveGenerator[ply-1].movedKing && moveGenerator[ply-1].newPosCopy == N/2 + (player == 0 ? N*(N-1) : 0)));
     }
 
     /** Score for each position on the board. (Larger score is better.) */
@@ -641,23 +564,18 @@ public class Searcher {
 
         int pieceScore[] = new int[2];
 
-        int occupied = boardOccupied;
-        long pieces = boardPieces;
-        int px = 0, py = 0;
+        for (int player = 0; player < 2; ++player) {
+            int bits = bitboardPlayer[player];
 
-        for (int p = 0; p < NN; ++p) {
-            if ((occupied & 1) == 1) {
-                long piece = pieces & 3;
-                int player = (int)(piece & 1);
-                pieceScore[player] += BOARD_SCORE[p];
+            for (int p = 0; p < NN; ++p) {
+                if ((bits & 1) == 1)
+                    pieceScore[player] += BOARD_SCORE[p];
+                bits >>= 1;
+                if (bits == 0) break; // no more pieces left
             }
-            occupied >>= 1;
-            if (occupied == 0) break; // no more pieces left
-            pieces >>= 2;
-            if (++px == N) { px = 0; ++py; }
         }
+
         int score = (pawnCount[0] - pawnCount[1])*20 + (pieceScore[0] - pieceScore[1]);
-//        System.out.printf("Score = %d - %d = %d%n", pieceScore[0], pieceScore[1], score);
         return score * (playerToEvaluate == 0 ? 1 : -1);
     }
 }

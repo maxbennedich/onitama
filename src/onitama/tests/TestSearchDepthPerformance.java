@@ -418,6 +418,90 @@ Depth 11, board 2, cards 1: score = 1, states = 59869117 + 167571555, time = 684
 Total states: 212942709 + 361520519 = 574463228
 Total time: 191882 ms
 
+
+Move reordering:
+
+Depth 1, board 0, cards 0: score = 2, states = 13 + 0, time = 0 ms
+Depth 1, board 0, cards 1: score = 2, states = 12 + 0, time = 0 ms
+Depth 1, board 1, cards 0: score = 25, states = 19 + 5, time = 0 ms
+Depth 1, board 1, cards 1: score = 24, states = 17 + 10, time = 0 ms
+Depth 1, board 2, cards 0: score = 2, states = 11 + 1, time = 4 ms
+Depth 1, board 2, cards 1: score = 2, states = 17 + 0, time = 0 ms
+
+Depth 2, board 0, cards 0: score = 0, states = 55 + 5, time = 0 ms
+Depth 2, board 0, cards 1: score = 0, states = 48 + 0, time = 0 ms
+Depth 2, board 1, cards 0: score = 24, states = 69 + 72, time = 0 ms
+Depth 2, board 1, cards 1: score = 22, states = 77 + 62, time = 0 ms
+Depth 2, board 2, cards 0: score = 0, states = 48 + 31, time = 0 ms
+Depth 2, board 2, cards 1: score = 0, states = 67 + 17, time = 0 ms
+
+Depth 3, board 0, cards 0: score = 3, states = 306 + 26, time = 0 ms
+Depth 3, board 0, cards 1: score = 2, states = 263 + 13, time = 0 ms
+Depth 3, board 1, cards 0: score = 26, states = 476 + 153, time = 4 ms
+Depth 3, board 1, cards 1: score = 22, states = 412 + 137, time = 4 ms
+Depth 3, board 2, cards 0: score = 2, states = 315 + 139, time = 0 ms
+Depth 3, board 2, cards 1: score = 2, states = 389 + 62, time = 0 ms
+
+Depth 4, board 0, cards 0: score = 1, states = 1153 + 1014, time = 0 ms
+Depth 4, board 0, cards 1: score = 0, states = 785 + 77, time = 0 ms
+Depth 4, board 1, cards 0: score = 25, states = 2055 + 2870, time = 4 ms
+Depth 4, board 1, cards 1: score = 22, states = 2219 + 2566, time = 0 ms
+Depth 4, board 2, cards 0: score = 1, states = 986 + 1038, time = 0 ms
+Depth 4, board 2, cards 1: score = 0, states = 1347 + 1409, time = 0 ms
+
+Depth 5, board 0, cards 0: score = 3, states = 6050 + 3009, time = 4 ms
+Depth 5, board 0, cards 1: score = 2, states = 3904 + 691, time = 4 ms
+Depth 5, board 1, cards 0: score = 25, states = 6764 + 3603, time = 4 ms
+Depth 5, board 1, cards 1: score = 22, states = 9417 + 4736, time = 4 ms
+Depth 5, board 2, cards 0: score = 1, states = 3481 + 3386, time = 4 ms
+Depth 5, board 2, cards 1: score = 1, states = 8271 + 6240, time = 8 ms
+
+Depth 6, board 0, cards 0: score = 1, states = 29825 + 35297, time = 36 ms
+Depth 6, board 0, cards 1: score = 0, states = 12945 + 4297, time = 8 ms
+Depth 6, board 1, cards 0: score = 24, states = 36312 + 62188, time = 40 ms
+Depth 6, board 1, cards 1: score = 21, states = 40757 + 62553, time = 40 ms
+Depth 6, board 2, cards 0: score = 21, states = 44929 + 100537, time = 60 ms
+Depth 6, board 2, cards 1: score = 1, states = 44100 + 98930, time = 56 ms
+
+Depth 7, board 0, cards 0: score = 1, states = 123957 + 89182, time = 88 ms
+Depth 7, board 0, cards 1: score = 0, states = 79008 + 33013, time = 36 ms
+Depth 7, board 1, cards 0: score = 24, states = 111434 + 75665, time = 56 ms
+Depth 7, board 1, cards 1: score = 22, states = 212295 + 126035, time = 116 ms
+Depth 7, board 2, cards 0: score = 20, states = 80100 + 122326, time = 76 ms
+Depth 7, board 2, cards 1: score = 1, states = 124161 + 231732, time = 128 ms
+
+Depth 8, board 0, cards 0: score = 1, states = 349229 + 568467, time = 392 ms
+Depth 8, board 0, cards 1: score = -1, states = 223389 + 135410, time = 128 ms
+Depth 8, board 1, cards 0: score = 24, states = 649755 + 1282719, time = 660 ms
+Depth 8, board 1, cards 1: score = 22, states = 529962 + 709275, time = 432 ms
+Depth 8, board 2, cards 0: score = 21, states = 207345 + 406451, time = 240 ms
+Depth 8, board 2, cards 1: score = 0, states = 849136 + 2389466, time = 1136 ms
+
+Depth 9, board 0, cards 0: score = 0, states = 1975483 + 2096877, time = 1549 ms
+Depth 9, board 0, cards 1: score = -1, states = 1251455 + 746239, time = 700 ms
+Depth 9, board 1, cards 0: score = 24, states = 1530890 + 1510452, time = 980 ms
+Depth 9, board 1, cards 1: score = 23, states = 2304421 + 1348258, time = 1048 ms
+Depth 9, board 2, cards 0: score = 20, states = 620408 + 619738, time = 412 ms
+Depth 9, board 2, cards 1: score = 1, states = 5355131 + 11566760, time = 5905 ms
+
+Depth 10, board 0, cards 0: score = 1, states = 5999669 + 10734354, time = 6369 ms
+Depth 10, board 0, cards 1: score = -1, states = 2922935 + 2549008, time = 1960 ms
+Depth 10, board 1, cards 0: score = 67, states = 6248805 + 8445889, time = 4765 ms
+Depth 10, board 1, cards 1: score = 23, states = 8071287 + 10317736, time = 6133 ms
+Depth 10, board 2, cards 0: score = 25, states = 4023136 + 7951287, time = 4692 ms
+Depth 10, board 2, cards 1: score = 0, states = 13041210 + 43309226, time = 19065 ms
+
+Depth 11, board 0, cards 0: score = 1, states = 34441315 + 39368314, time = 25958 ms
+Depth 11, board 0, cards 1: score = -1, states = 12685382 + 9990015, time = 7997 ms
+Depth 11, board 1, cards 0: score = 68, states = 13570816 + 8486694, time = 5952 ms
+Depth 11, board 1, cards 1: score = 23, states = 21235534 + 14515291, time = 10372 ms
+Depth 11, board 2, cards 0: score = 24, states = 7974595 + 8688042, time = 5424 ms
+Depth 11, board 2, cards 1: score = 1, states = 69900087 + 200903521, time = 83614 ms
+
+Total states: 216950244 + 389712616 = 606662860
+Total time: 211525 ms
+Total time: 125053 ms (bitboard optimizations)
+
  */
 public class TestSearchDepthPerformance {
 
