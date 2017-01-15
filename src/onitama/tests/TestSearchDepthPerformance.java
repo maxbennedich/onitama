@@ -501,6 +501,7 @@ Depth 11, board 2, cards 1: score = 1, states = 69900087 + 200903521, time = 836
 Total states: 216950244 + 389712616 = 606662860
 Total time: 211525 ms
 Total time: 125053 ms (bitboard optimizations)
+Total time: 91660 ms (more efficient scoring)
 
  */
 public class TestSearchDepthPerformance {

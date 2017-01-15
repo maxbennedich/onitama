@@ -543,31 +543,27 @@ public class Searcher {
     }
 
     /** Score for each position on the board. (Larger score is better.) */
-    private static final int[] BOARD_SCORE = new int[] {
-            0,1,2,1,0,
-            1,2,3,2,1,
-            2,3,4,3,2,
-            1,2,3,2,1,
-            0,1,2,1,0,
-    };
+    private static final int SCORE_1 = 0b01010_10001_00000_10001_01010;
+    private static final int SCORE_2 = 0b00100_01010_10001_01010_00100;
+    private static final int SCORE_3 = 0b00000_00100_01010_00100_00000;
+    private static final int SCORE_4 = 0b00000_00000_00100_00000_00000;
 
     int score(int playerToEvaluate) {
         stats.leafEvaluated();
 
-        int pieceScore[] = new int[2];
+        int pieceScore0 =
+                Integer.bitCount(bitboardPlayer[0] & SCORE_1) +
+                2 * Integer.bitCount(bitboardPlayer[0] & SCORE_2) +
+                3 * Integer.bitCount(bitboardPlayer[0] & SCORE_3) +
+                4 * Integer.bitCount(bitboardPlayer[0] & SCORE_4);
 
-        for (int player = 0; player < 2; ++player) {
-            int bits = bitboardPlayer[player];
+        int pieceScore1 =
+                Integer.bitCount(bitboardPlayer[1] & SCORE_1) +
+                2 * Integer.bitCount(bitboardPlayer[1] & SCORE_2) +
+                3 * Integer.bitCount(bitboardPlayer[1] & SCORE_3) +
+                4 * Integer.bitCount(bitboardPlayer[1] & SCORE_4);
 
-            for (int p = 0; p < NN; ++p) {
-                if ((bits & 1) == 1)
-                    pieceScore[player] += BOARD_SCORE[p];
-                bits >>= 1;
-                if (bits == 0) break; // no more pieces left
-            }
-        }
-
-        int score = (pawnCount[0] - pawnCount[1])*20 + (pieceScore[0] - pieceScore[1]);
+        int score = (pawnCount[0] - pawnCount[1])*20 + (pieceScore0 - pieceScore1);
         return score * (playerToEvaluate == 0 ? 1 : -1);
     }
 }
