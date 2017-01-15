@@ -77,10 +77,6 @@ public class Searcher {
 //    boolean[][] pieceAlive = new boolean[2][N];
 //    int[][] piecePos = new int[2][N*2];
 
-    // evaluation metrics
-    int[] pawnCount = new int[2];
-    int[] kingDist = new int[2];
-
     CardState cardState;
 
     public Stats stats;
@@ -126,16 +122,14 @@ public class Searcher {
             }
         }*/
 
-        pawnCount[0] = pawnCount[1] = 0;
-
         long piece = 1;
         for (int y = 0, bit = 1; y < N; ++y) {
             for (int x = 0; x < N; ++x, bit *= 2, piece *= 4) {
                 if (board.charAt(y*5+x) != '.') {
-                    if (board.charAt(y*5+x) == 'w') { bitboardPlayer[0] |= bit; /* |= 0 not needed */ zobrist ^= Zobrist.PIECE[0][0][y*5+x]; ++pawnCount[0]; }
-                    else if (board.charAt(y*5+x) == 'b') { bitboardPlayer[1] |= bit; boardPieces |= piece; zobrist ^= Zobrist.PIECE[1][0][y*5+x]; ++pawnCount[1]; }
-                    else if (board.charAt(y*5+x) == 'W') { bitboardPlayer[0] |= bit; boardPieces |= piece*2; zobrist ^= Zobrist.PIECE[0][1][y*5+x]; kingDist[0] = y + Math.abs(N/2 - x); }
-                    else if (board.charAt(y*5+x) == 'B') { bitboardPlayer[1] |= bit; boardPieces |= piece*3; zobrist ^= Zobrist.PIECE[1][1][y*5+x]; kingDist[1] = N - 1 - y + Math.abs(N/2 - x); }
+                    if (board.charAt(y*5+x) == 'w') { bitboardPlayer[0] |= bit; /* |= 0 not needed */ zobrist ^= Zobrist.PIECE[0][0][y*5+x]; }
+                    else if (board.charAt(y*5+x) == 'b') { bitboardPlayer[1] |= bit; boardPieces |= piece; zobrist ^= Zobrist.PIECE[1][0][y*5+x]; }
+                    else if (board.charAt(y*5+x) == 'W') { bitboardPlayer[0] |= bit; boardPieces |= piece*2; zobrist ^= Zobrist.PIECE[0][1][y*5+x]; }
+                    else if (board.charAt(y*5+x) == 'B') { bitboardPlayer[1] |= bit; boardPieces |= piece*3; zobrist ^= Zobrist.PIECE[1][1][y*5+x]; }
                 }
             }
         }
@@ -453,7 +447,7 @@ public class Searcher {
         }
 
         // ----------------
-        boolean killedKing, killedPawn, movedKing;
+        boolean killedKing, movedKing;
         int newPosCopy;
         long prevZobrist;
         int prevBitboardP0;
@@ -467,18 +461,13 @@ public class Searcher {
             prevZobrist = zobrist;
 
             killedKing = false;
-            killedPawn = false;
 
             if ((bitboardPlayer[1-player] & newPosMask) != 0) {
                 int pieceOnNewPos = (int)(boardPieces >> (2*newPos[m]));
 
                 // opponent player piece taken
-                if ((pieceOnNewPos & 2) != 0) {
+                if ((pieceOnNewPos & 2) != 0)
                     killedKing = true;
-                } else {
-                    killedPawn = true;
-                    --pawnCount[1-player];
-                }
 
                 zobrist ^= Zobrist.PIECE[1 - player][killedKing ? 1 : 0][newPos[m]];
             }
@@ -521,9 +510,6 @@ public class Searcher {
             cardState.nextCard = cardState.playerCards[player][cardUsed[m]];
             cardState.playerCards[player][cardUsed[m]] = tmpCard;
 
-            if (killedPawn)
-                ++pawnCount[1-player];
-
             bitboardPlayer[0] = prevBitboardP0;
             bitboardPlayer[1] = prevBitboardP1;
             boardPieces = prevBoardPieces;
@@ -563,7 +549,8 @@ public class Searcher {
                 3 * Integer.bitCount(bitboardPlayer[1] & SCORE_3) +
                 4 * Integer.bitCount(bitboardPlayer[1] & SCORE_4);
 
-        int score = (pawnCount[0] - pawnCount[1])*20 + (pieceScore0 - pieceScore1);
+        int score = (Integer.bitCount(bitboardPlayer[0]) - Integer.bitCount(bitboardPlayer[1]))*20 + (pieceScore0 - pieceScore1);
+
         return score * (playerToEvaluate == 0 ? 1 : -1);
     }
 }
