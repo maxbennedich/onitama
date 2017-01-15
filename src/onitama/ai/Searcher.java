@@ -27,6 +27,9 @@ import onitama.ui.Output;
  *   board states with 4 pieces, not including card permutations, so it may be feasible to calculate all the endgames up to 4 pieces during runtime, but
  *   likely not more than that. This might not make much of a difference during general game play. (Can try this by extending the depth when the piece
  *   count is small.)
+ * - Bitboards for move generation and validation. This resulted in a 4x speedup over iterating over all board squares and moves.
+ * - Storing the result from the quiescence search in the TT (or even use the TT for all quiescence nodes). Preliminary testing to store and retrieve
+ *   the quiescence scores actually made the search take twice as long. Should experiment more with this, it feels like it could be improved.
  *
  * Ideas:
  * - Generate bit boards for each card/move and for each position.
@@ -196,7 +199,7 @@ public class Searcher {
         log("depth  time  score  best moves");
 
         int score = NO_SCORE;
-        for (currentDepthSearched = 0; currentDepthSearched < nominalDepth && Math.abs(score) != WIN_SCORE; ++currentDepthSearched) {
+        for (currentDepthSearched = 1; currentDepthSearched <= nominalDepth && Math.abs(score) != WIN_SCORE; ++currentDepthSearched) {
             stats.resetDepthSeen();
 
 //          score = negamax(initialPlayer, searchDepth, 99, INF_SCORE);
@@ -265,11 +268,9 @@ public class Searcher {
 
         // depth extensions/reductions would go here
 
-        // end of nominal search depth -- do a queiscent search phase to play out any pending captures
-        // TODO: is it worth storing/retrieving horizon nodes from the TT, or it is more efficient to reevaluate them?
-        if (depth < 0)
+        // end of nominal search depth -- do a queiscence search phase to play out any pending captures and wins
+        if (depth == 0)
             return quiesce(player, ply, 0, pvIdx, alpha, beta);
-//        return score(player);
 
         stats.depthSeen(ply);
 
