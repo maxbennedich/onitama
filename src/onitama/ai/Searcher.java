@@ -65,7 +65,6 @@ public class Searcher {
 
     int initialPlayer;
 
-    int boardOccupied = 0;
     int[] bitboardPlayer = { 0, 0 };
     long boardPieces = 0;
     long zobrist = 0;
@@ -133,7 +132,6 @@ public class Searcher {
         for (int y = 0, bit = 1; y < N; ++y) {
             for (int x = 0; x < N; ++x, bit *= 2, piece *= 4) {
                 if (board.charAt(y*5+x) != '.') {
-                    boardOccupied |= bit;
                     if (board.charAt(y*5+x) == 'w') { bitboardPlayer[0] |= bit; /* |= 0 not needed */ zobrist ^= Zobrist.PIECE[0][0][y*5+x]; ++pawnCount[0]; }
                     else if (board.charAt(y*5+x) == 'b') { bitboardPlayer[1] |= bit; boardPieces |= piece; zobrist ^= Zobrist.PIECE[1][0][y*5+x]; ++pawnCount[1]; }
                     else if (board.charAt(y*5+x) == 'W') { bitboardPlayer[0] |= bit; boardPieces |= piece*2; zobrist ^= Zobrist.PIECE[0][1][y*5+x]; kingDist[0] = y + Math.abs(N/2 - x); }
@@ -458,7 +456,6 @@ public class Searcher {
         boolean killedKing, killedPawn, movedKing;
         int newPosCopy;
         long prevZobrist;
-        int prevBoardOccupied;
         int prevBitboardP0;
         int prevBitboardP1;
         long prevBoardPieces;
@@ -469,11 +466,10 @@ public class Searcher {
 
             prevZobrist = zobrist;
 
-            boolean newPosOccupied = (boardOccupied & newPosMask) != 0;
             killedKing = false;
             killedPawn = false;
 
-            if (newPosOccupied) {
+            if ((bitboardPlayer[1-player] & newPosMask) != 0) {
                 int pieceOnNewPos = (int)(boardPieces >> (2*newPos[m]));
 
                 // opponent player piece taken
@@ -487,7 +483,6 @@ public class Searcher {
                 zobrist ^= Zobrist.PIECE[1 - player][killedKing ? 1 : 0][newPos[m]];
             }
 
-            prevBoardOccupied = boardOccupied;
             prevBitboardP0 = bitboardPlayer[0];
             prevBitboardP1 = bitboardPlayer[1];
             prevBoardPieces = boardPieces;
@@ -497,13 +492,11 @@ public class Searcher {
 
             // remove piece from current position
             int posMask = 1 << oldPos[m];
-            boardOccupied &= ~posMask;
             bitboardPlayer[player] &= ~posMask;
             long pieceMask = 3L << (2*oldPos[m]);
             boardPieces &= ~pieceMask;
 
             // add piece to new position
-            boardOccupied |= newPosMask;
             bitboardPlayer[player] |= newPosMask;
             bitboardPlayer[1-player] &= ~newPosMask;
             long newPieceMask = 3L << (2*newPos[m]);
@@ -531,7 +524,6 @@ public class Searcher {
             if (killedPawn)
                 ++pawnCount[1-player];
 
-            boardOccupied = prevBoardOccupied;
             bitboardPlayer[0] = prevBitboardP0;
             bitboardPlayer[1] = prevBitboardP1;
             boardPieces = prevBoardPieces;
@@ -540,7 +532,7 @@ public class Searcher {
     }
 
     public void printBoard() {
-        Output.printBoard(boardOccupied, boardPieces);
+        Output.printBoard(bitboardPlayer[0] | bitboardPlayer[1], boardPieces);
 
 //        System.out.printf("\n\nScore: %d%n%n", score());
     }
