@@ -66,13 +66,12 @@ public class Searcher {
 
     int[] bitboardPlayer = { 0, 0 };
     int[] bitboardKing = { 0, 0 };
+    int cardBits;
     long zobrist = 0;
 
     /** Triangular table of principal variations (best moves) for each ply. */
     int[] pvTable = new int[MAX_DEPTH * (MAX_DEPTH + 1) / 2];
     int[] pvLength = new int[MAX_DEPTH];
-
-    CardState cardState;
 
     public Stats stats;
 
@@ -97,11 +96,11 @@ public class Searcher {
     }
 
     void initCards(CardState cardState) {
-        this.cardState = new CardState(cardState.playerCards, cardState.nextCard);
-
         for (int p = 0; p < 2; ++p)
             for (int c = 0; c < GameDefinition.CARDS_PER_PLAYER; ++c)
                 zobrist ^= Zobrist.CARD[p][cardState.playerCards[p][c].id];
+
+        cardBits = cardState.nextCard.id + (cardState.playerCards[0][0].id << 4) + (cardState.playerCards[0][1].id << 8) + (cardState.playerCards[1][0].id << 12) + (cardState.playerCards[1][1].id << 16);
     }
 
     void initBoard(String board) {
@@ -246,7 +245,7 @@ public class Searcher {
             if (score > alpha) {
                 alpha = score;
 
-                pvTable[pvIdx] = cardState.playerCards[player][mg.cardUsed[move]].id + (mg.oldPos[move] << 4) + (mg.newPos[move] << 9);
+                pvTable[pvIdx] = ((cardBits >> 4 + player * 8 + mg.cardUsed[move] * 4) & 15) + (mg.oldPos[move] << 4) + (mg.newPos[move] << 9);
                 System.arraycopy(pvTable, pvNextIdx, pvTable, pvIdx + 1, pvLength[ply + 1]);
                 pvLength[ply] = pvLength[ply + 1] + 1;
 
@@ -335,7 +334,7 @@ public class Searcher {
                 if (bestScore > alpha) {
                     alpha = bestScore;
 
-                    pvTable[pvIdx] = cardState.playerCards[player][mg.cardUsed[move]].id + (mg.oldPos[move] << 4) + (mg.newPos[move] << 9);
+                    pvTable[pvIdx] = ((cardBits >> 4 + player * 8 + mg.cardUsed[move] * 4) & 15) + (mg.oldPos[move] << 4) + (mg.newPos[move] << 9);
                     System.arraycopy(pvTable, pvNextIdx, pvTable, pvIdx + 1, pvLength[ply + 1]);
                     pvLength[ply] = pvLength[ply + 1] + 1;
                 }
@@ -344,7 +343,9 @@ public class Searcher {
                     logMove(false, score);
 
                 killerOldPos = mg.oldPos[move];
-                killerCard = cardState.playerCards[player][0].id < cardState.playerCards[player][1].id ? mg.cardUsed[move] : 1 - mg.cardUsed[move]; // 0 = lower card id, 1 = higher (card order may differ)
+                int card0 = ((cardBits >> 4 + player * 8) & 15);
+                int card1 = ((cardBits >> 4 + player * 8 + 4) & 15);
+                killerCard = card0 < card1 ? mg.cardUsed[move] : 1 - mg.cardUsed[move]; // 0 = lower card id, 1 = higher (card order may differ)
                 killerNewPos = mg.newPos[move];
 
                 // see if we've reached a state where continued evaluation can not possibly affect the outcome
@@ -393,7 +394,9 @@ public class Searcher {
                 stats.killerMoveHit(ply);
                 oldPos[moves] = killerOldPos = (seenState >> 16) & 31;
                 int seenCard = (seenState >> 21) & 1;
-                cardUsed[moves] = killerCard = cardState.playerCards[player][0].id < cardState.playerCards[player][1].id ? seenCard : 1 - seenCard; // 0 = lower card id, 1 = higher (card order may differ)
+                int card0 = ((cardBits >> 4 + player * 8) & 15);
+                int card1 = ((cardBits >> 4 + player * 8 + 4) & 15);
+                cardUsed[moves] = killerCard = card0 < card1 ? seenCard : 1 - seenCard; // 0 = lower card id, 1 = higher (card order may differ)
                 newPos[moves] = killerNewPos = (seenState >> 22) & 31;
                 ++moves;
             }
@@ -404,7 +407,7 @@ public class Searcher {
                 p += pz + 1;
 
                 for (int card = 0; card < GameDefinition.CARDS_PER_PLAYER; ++card) {
-                    int moveBitmask = cardState.playerCards[player][card].moveBitmask[player][p];
+                    int moveBitmask = Card.CARDS[((cardBits >> 4 + player * 8 + card * 4) & 15)].moveBitmask[player][p];
 
                     if (moveType == MoveType.CAPTURE_OR_WIN)
                         moveBitmask &= (bitboardPlayer[1-player] | GameDefinition.WIN_BITMASK[player]); // only captures and wins
@@ -430,6 +433,7 @@ public class Searcher {
 
         // ----------------
         long prevZobrist;
+        int prevCardBits;
         int prevBitboardP0, prevBitboardP1;
         int prevBitboardK0, prevBitboardK1;
 
@@ -466,21 +470,21 @@ public class Searcher {
             zobrist ^= Zobrist.PIECE[player][movedPiece][oldPos[m]];
             zobrist ^= Zobrist.PIECE[player][movedPiece][newPos[m]];
 
-            zobrist ^= Zobrist.CARD[player][cardState.playerCards[player][cardUsed[m]].id];
-            zobrist ^= Zobrist.CARD[player][cardState.nextCard.id];
+            int cardUsedPos = 4 + player * 8 + cardUsed[m] * 4;
+            int cardUsedId = ((cardBits >> cardUsedPos) & 15);
+            int nextCardId = cardBits & 15;
+            zobrist ^= Zobrist.CARD[player][cardUsedId];
+            zobrist ^= Zobrist.CARD[player][nextCardId];
 
             zobrist ^= Zobrist.SHIFT_PLAYER;
 
-            Card tmpCard = cardState.nextCard;
-            cardState.nextCard = cardState.playerCards[player][cardUsed[m]];
-            cardState.playerCards[player][cardUsed[m]] = tmpCard;
+            prevCardBits = cardBits;
+            cardBits = cardBits & ~(15 + (15 << cardUsedPos));
+            cardBits |= cardUsedId + (nextCardId << cardUsedPos);
         }
 
         void unmove(int m) {
-            Card tmpCard = cardState.nextCard;
-            cardState.nextCard = cardState.playerCards[player][cardUsed[m]];
-            cardState.playerCards[player][cardUsed[m]] = tmpCard;
-
+            cardBits = prevCardBits;
             bitboardPlayer[0] = prevBitboardP0;
             bitboardPlayer[1] = prevBitboardP1;
             bitboardKing[0] = prevBitboardK0;
