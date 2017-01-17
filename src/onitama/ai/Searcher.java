@@ -1,8 +1,5 @@
 package onitama.ai;
 
-import java.util.Arrays;
-import java.util.Comparator;
-
 import onitama.model.Card;
 import onitama.model.CardState;
 import onitama.model.GameDefinition;
@@ -246,7 +243,9 @@ public class Searcher {
         MoveGenerator mg = moveGenerator[ply];
         mg.generate(TranspositionTable.NO_ENTRY, MoveType.CAPTURE_OR_WIN);
 
-        for (int move = 0; move < mg.moves; ++move) {
+        for (int mi = 0; mi < mg.moves; ++mi) {
+            int move = mg.bestRemainingMove();
+
             stats.quiescenceStateEvaluated(ply);
             mg.move(move);
 
@@ -322,7 +321,9 @@ public class Searcher {
         MoveGenerator mg = moveGenerator[ply];
         mg.generate(seenState, MoveType.ALL);
 
-        for (int move = 0; move < mg.moves; ++move) {
+        for (int mi = 0; mi < mg.moves; ++mi) {
+            int move = mg.bestRemainingMove();
+
             stats.stateEvaluated(ply);
             mg.move(move);
 
@@ -466,28 +467,15 @@ public class Searcher {
                     }
                 }
             }
+        }
 
-            int[] oldPos2 = new int[40], cardUsed2 = new int[40], newPos2 = new int[40];
-            Integer[] order = new Integer[40];
-
-            for (int m = 0; m < moves; ++m)
-                order[m] = m;
-
-            Arrays.sort(order, 0, moves, new Comparator<Integer>() {
-                @Override public int compare(Integer i0, Integer i1) {
-                    return moveScore[i1] == moveScore[i0] ? 0 : (moveScore[i1] > moveScore[i0] ? 1 : -1);
-                }
-            });
-
-            for (int m = 0; m < moves; ++m) {
-                oldPos2[m] = oldPos[order[m]];
-                cardUsed2[m] = cardUsed[order[m]];
-                newPos2[m] = newPos[order[m]];
-            }
-
-            oldPos = oldPos2;
-            cardUsed = cardUsed2;
-            newPos = newPos2;
+        int bestRemainingMove() {
+            long maxScore = -1;
+            int move = -1;
+            for (int i = 0; i < moves; ++i)
+                if (moveScore[i] > maxScore) { maxScore = moveScore[i]; move = i; }
+            moveScore[move] = -1; // so that we don't pick this move during the next call to this method
+            return move;
         }
 
         // ----------------
