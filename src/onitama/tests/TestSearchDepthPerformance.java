@@ -670,6 +670,11 @@ Depth 11, board 2, cards 1: score = 1, states = 3967131 + 1026216, time = 1961 m
 Total states: 20263678 + 4957085 = 25220763
 Total time: 25377 ms
 
+Optimized:
+
+Total states: 19911899 + 4762427 = 24674326
+Total time: 21958 ms
+
  */
 public class TestSearchDepthPerformance {
 

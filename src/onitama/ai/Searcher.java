@@ -166,7 +166,7 @@ public class Searcher {
             pvSb.append(String.format("%s %c%c-%c%c", move.card.name, 'a'+move.px, '5'-move.py, 'a'+move.nx, '5'-move.ny));
         }
 
-        return String.format("%2d%2s%s%6d   %s", currentDepthSearched, depthComplete ? "->" : "  ", timeStr, score, pvSb);
+        return String.format("%2d/%2d%2s%s%6d   %s", currentDepthSearched, stats.getMaxDepthSeen(), depthComplete ? "->" : "  ", timeStr, score, pvSb);
     }
 
     Timer timer;
@@ -205,7 +205,7 @@ public class Searcher {
     public int start(long maxTimeMs) {
         timer = new Timer(maxTimeMs);
 
-        log("depth  time  score  best moves");
+        log(" depth    time  score  best moves");
 
         int score = NO_SCORE;
         for (currentDepthSearched = 1; currentDepthSearched <= nominalDepth && Math.abs(score) != WIN_SCORE; ++currentDepthSearched) {

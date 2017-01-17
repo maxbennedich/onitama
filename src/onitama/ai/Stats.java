@@ -33,6 +33,7 @@ public class Stats {
 
     void resetDepthSeen() { maxDepthSearched = -1; }
     void depthSeen(int ply) { if (ply > maxDepthSearched) maxDepthSearched = ply; }
+    public int getMaxDepthSeen() { return maxDepthSearched + 1; }
 
     void stateEvaluated(int ply) { ++statesEvaluated; ++plyStats[ply].statesEvaluated; }
     void quiescenceStateEvaluated(int ply) { ++quiescenceStatesEvaluated; ++plyStats[ply].quiescenceStatesEvaluated; }
@@ -49,7 +50,7 @@ public class Stats {
     public long getQuiescenceStatesEvaluated() { return quiescenceStatesEvaluated; }
 
     public void print() {
-        System.out.printf("Max depth searched: %d%n", maxDepthSearched + 1);
+        System.out.printf("Max depth searched: %d%n", getMaxDepthSeen());
         System.out.printf("States evaluated: %d%n", statesEvaluated);
         System.out.printf("Quiescence states evaluated: %d%n", quiescenceStatesEvaluated);
         System.out.printf("Leaves evaluated: %d%n", leavesEvaluated);
