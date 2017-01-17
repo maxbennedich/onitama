@@ -33,12 +33,17 @@ import onitama.ui.Output;
  * - Bitboards for move generation and validation. This resulted in a 4x speedup over iterating over all board squares and moves.
  * - Storing the result from the quiescence search in the TT (or even use the TT for all quiescence nodes). Preliminary testing to store and retrieve
  *   the quiescence scores actually made the search take twice as long. Should experiment more with this, it feels like it could be improved.
- * - Move ordering. Made a huge difference. Most important was capture moves: Instead of trying the best move (from the TT) followed by all other moves
- *   unordered, try the best move, then captures, then non-captures. This resulted in 10-20x less nodes visited overall. Visiting winning positions first
- *   reduced the number of visited nodes by another 20%. Finally, history heuristic was implemented, which cut the number of visited nodes in half.
+ * - Move ordering. Made a huge difference. This lowers the overall branching factor, meaning an exponential savings in nodes visited (bigger saving the
+ *   more plies are searched). Most important was capture moves: Instead of trying the best move (from the TT) followed by all other moves unordered, try
+ *   the best move, then captures, then non-captures. This resulted in 10-20x less nodes visited overall in the test suite (TestVariousBoardsAndCards).
+ *   Visiting winning positions first reduced the number of visited nodes by another 20%. Finally, history heuristic was implemented, which
+ *   cut the number of visited nodes in half in the test suite. For a more extensive test searching a 6 piece board to depth 19, the elapsed time
+ *   went from 22400 seconds to 23 seconds, with the latter ending up finding the win at move 20 through the TT (the former did not), i.e. it was
+ *   at least 1000x times faster, and probably a lot more than that in order to find the same result.
  *
  * Ideas:
  * - Optimize entries in TT table (high depth, exact scores)
+ * - Try best move first, only run move generation if no cut-off
  * - Pondering
  */
 public class Searcher {
@@ -364,11 +369,10 @@ public class Searcher {
                 if (alpha >= beta) {
                     stats.alphaBetaCutoff();
 
-                    // update history table
-                    int newPosMask = 1 << mg.newPos[move];
-                    boolean capturedPiece = (bitboardPlayer[1-player] & newPosMask) != 0;
+                    // update history table, indicating that this is a good move (since it's causing a cut-off)
+                    boolean capturedPiece = (bitboardPlayer[1-player] & (1 << mg.newPos[move])) != 0;
                     if (!capturedPiece)
-                        historyTable[player][mg.oldPos[move]][mg.newPos[move]] += depth * depth; // give less weight to moves near the leaves, or they will overpower the table
+                        historyTable[player][mg.oldPos[move]][mg.newPos[move]] += depth * depth; // give less weight to moves near the leaves, or they will dominate the table
 
                     break;
                 }
@@ -395,11 +399,14 @@ public class Searcher {
         long[] moveScore = new long[40];
         int moves;
 
-        final long WIN = Long.MAX_VALUE;
-        final long BEST_MOVE = Long.MAX_VALUE - 1;
+        // move order:
+        // 1. best move (will always include winning moves thanks to quiescence search)
+        // 2. winning moves (king capture and moving king to winning position)
+        // 3. piece captures
+        // 4. history table heuristic
+        final long BEST_MOVE = Long.MAX_VALUE;
+        final long WIN = Long.MAX_VALUE - 1;
         final long CAPTURE = Long.MAX_VALUE - 2;
-        final long NON_KING_MOVE = Long.MAX_VALUE - 3;
-        final long KING_MOVE = Long.MAX_VALUE - 4;
 
         MoveGenerator(int ply, int player) {
             this.ply = ply;
@@ -449,15 +456,10 @@ public class Searcher {
                         cardUsed[moves] = card;
                         newPos[moves] = np;
 
-                        int oldPosMask = 1 << p;
                         int newPosMask = 1 << np;
-                        int movedPiece = bitboardKing[player] == oldPosMask ? KING : PAWN;
-                        boolean capturedPiece = (bitboardPlayer[1-player] & newPosMask) != 0;
-                        boolean capturedKing = capturedPiece && (bitboardKing[1-player] & newPosMask) != 0;
-
-                        if ((movedPiece == KING && np == N/2 + (player == 0 ? 0 : N*(N-1))) || capturedKing)
-                            moveScore[moves] = WIN;
-                        else if (capturedPiece) moveScore[moves] = CAPTURE;
+                        if ((bitboardKing[1-player] & newPosMask) != 0) moveScore[moves] = WIN; // captured king
+                        else if ((bitboardKing[player] == (1 << p) && np == GameDefinition.WIN_POSITION[player])) moveScore[moves] = WIN; // moved king to winning position
+                        else if ((bitboardPlayer[1-player] & newPosMask) != 0) moveScore[moves] = CAPTURE; // captured piece
                         else moveScore[moves] = historyTable[player][p][np];
 
                         ++moves;
@@ -465,11 +467,6 @@ public class Searcher {
                 }
             }
 
-            // order moves:
-            // 1. win
-            // 2. best move
-            // 3. captures
-            // 4. history table move
             int[] oldPos2 = new int[40], cardUsed2 = new int[40], newPos2 = new int[40];
             Integer[] order = new Integer[40];
 
