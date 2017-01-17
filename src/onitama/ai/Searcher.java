@@ -241,11 +241,9 @@ public class Searcher {
         int pvNextIdx = pvIdx + MAX_DEPTH - ply;
 
         MoveGenerator mg = moveGenerator[ply];
-        mg.generate(TranspositionTable.NO_ENTRY, MoveType.CAPTURE_OR_WIN);
+        mg.reset(TranspositionTable.NO_ENTRY, MoveType.CAPTURE_OR_WIN);
 
-        for (int mi = 0; mi < mg.moves; ++mi) {
-            int move = mg.bestRemainingMove();
-
+        for (int move; (move = mg.getNextMoveIdx()) != -1; ) {
             stats.quiescenceStateEvaluated(ply);
             mg.move(move);
 
@@ -319,11 +317,9 @@ public class Searcher {
         int pvNextIdx = pvIdx + MAX_DEPTH - ply;
 
         MoveGenerator mg = moveGenerator[ply];
-        mg.generate(seenState, MoveType.ALL);
+        mg.reset(seenState, MoveType.ALL);
 
-        for (int mi = 0; mi < mg.moves; ++mi) {
-            int move = mg.bestRemainingMove();
-
+        for (int move; (move = mg.getNextMoveIdx()) != -1; ) {
             stats.stateEvaluated(ply);
             mg.move(move);
 
@@ -396,41 +392,80 @@ public class Searcher {
         final int ply;
         final int player;
 
+        MoveType moveType;
+
         int[] oldPos = new int[40], cardUsed = new int[40], newPos = new int[40];
         long[] moveScore = new long[40];
-        int moves;
+
+        int totalMoves, movesReturned;
+
+        boolean generatedAllMoves, generatedBestMove;
+        int bestMoveOldPos, bestMoveCard, bestMoveNewPos;
 
         // move order:
         // 1. best move (will always include winning moves thanks to quiescence search)
         // 2. winning moves (king capture and moving king to winning position)
         // 3. piece captures
         // 4. history table heuristic
-        final long BEST_MOVE = Long.MAX_VALUE;
-        final long WIN = Long.MAX_VALUE - 1;
-        final long CAPTURE = Long.MAX_VALUE - 2;
+        final long WIN = Long.MAX_VALUE;
+        final long CAPTURE = Long.MAX_VALUE - 1;
 
         MoveGenerator(int ply, int player) {
             this.ply = ply;
             this.player = player;
         }
 
-        void generate(int seenState, MoveType moveType) {
-            moves = 0;
+        void reset(int seenState, MoveType moveType) {
+            this.moveType = moveType;
+            generatedAllMoves = false;
 
-            // add best move (found during previous search in iterative deepening and stored in the TT)
-            int bestMoveOldPos = -1, bestMoveCard = -1, bestMoveNewPos = -1;
+            // Lazy move generation -- start with just generating the best move (found during previous search in iterative deepening and stored in the TT)
+            // This move always needs to be tested, but will hopefully lead to a cut-off, so we don't need to generate the remaining moves.
+            // If there is no cut-off, we will at least benefit from the history heuristic updates that this move produces.
+            generateBestMove(seenState);
+        }
+
+        int getNextMoveIdx() {
+            if (generatedBestMove) {
+                generatedBestMove = false;
+                return 0;
+            }
+
+            if (!generatedAllMoves)
+                generateAllMoves();
+
+            if (++movesReturned > totalMoves)
+                return -1;
+
+            long maxScore = -1;
+            int move = -1;
+            for (int i = 0; i < totalMoves; ++i)
+                if (moveScore[i] > maxScore) { maxScore = moveScore[i]; move = i; }
+            moveScore[move] = -1; // so that we don't pick this move during the next call to this method
+            return move;
+        }
+
+        void generateBestMove(int seenState) {
             stats.bestMoveLookup(ply);
             if (seenState != TranspositionTable.NO_ENTRY) {
                 stats.bestMoveHit(ply);
-                oldPos[moves] = bestMoveOldPos = (seenState >> 16) & 31;
+                oldPos[0] = bestMoveOldPos = (seenState >> 16) & 31;
                 int seenCard = (seenState >> 21) & 1;
                 int card0 = ((cardBits >> 4 + player * 8) & 15);
                 int card1 = ((cardBits >> 4 + player * 8 + 4) & 15);
-                cardUsed[moves] = bestMoveCard = card0 < card1 ? seenCard : 1 - seenCard; // 0 = lower card id, 1 = higher (card order may differ)
-                newPos[moves] = bestMoveNewPos = (seenState >> 22) & 31;
-                moveScore[moves] = BEST_MOVE;
-                ++moves;
+                cardUsed[0] = bestMoveCard = card0 < card1 ? seenCard : 1 - seenCard; // 0 = lower card id, 1 = higher (card order may differ)
+                newPos[0] = bestMoveNewPos = (seenState >> 22) & 31;
+                generatedBestMove = true;
+            } else {
+                bestMoveOldPos = bestMoveCard = bestMoveNewPos = -1;
+                generatedBestMove = false;
             }
+        }
+
+        void generateAllMoves() {
+            generatedAllMoves = true;
+            totalMoves = 0;
+            movesReturned = 0;
 
             for (int playerBitmask = bitboardPlayer[player], p = -1, pz = -1; ; ) {
                 playerBitmask >>= (pz+1);
@@ -453,29 +488,20 @@ public class Searcher {
                         if (p == bestMoveOldPos && card == bestMoveCard && np == bestMoveNewPos) continue;
 
                         // add move
-                        oldPos[moves] = p;
-                        cardUsed[moves] = card;
-                        newPos[moves] = np;
+                        oldPos[totalMoves] = p;
+                        cardUsed[totalMoves] = card;
+                        newPos[totalMoves] = np;
 
                         int newPosMask = 1 << np;
-                        if ((bitboardKing[1-player] & newPosMask) != 0) moveScore[moves] = WIN; // captured king
-                        else if ((bitboardKing[player] == (1 << p) && np == GameDefinition.WIN_POSITION[player])) moveScore[moves] = WIN; // moved king to winning position
-                        else if ((bitboardPlayer[1-player] & newPosMask) != 0) moveScore[moves] = CAPTURE; // captured piece
-                        else moveScore[moves] = historyTable[player][p][np];
+                        if ((bitboardKing[1-player] & newPosMask) != 0) moveScore[totalMoves] = WIN; // captured king
+                        else if ((bitboardKing[player] == (1 << p) && np == GameDefinition.WIN_POSITION[player])) moveScore[totalMoves] = WIN; // moved king to winning position
+                        else if ((bitboardPlayer[1-player] & newPosMask) != 0) moveScore[totalMoves] = CAPTURE; // captured piece
+                        else moveScore[totalMoves] = historyTable[player][p][np];
 
-                        ++moves;
+                        ++totalMoves;
                     }
                 }
             }
-        }
-
-        int bestRemainingMove() {
-            long maxScore = -1;
-            int move = -1;
-            for (int i = 0; i < moves; ++i)
-                if (moveScore[i] > maxScore) { maxScore = moveScore[i]; move = i; }
-            moveScore[move] = -1; // so that we don't pick this move during the next call to this method
-            return move;
         }
 
         // ----------------
