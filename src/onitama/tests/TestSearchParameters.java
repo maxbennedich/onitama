@@ -29,7 +29,7 @@ TT size: 545 ms
 Board/Player: 716 ms
 Total time: 6613 ms
 
-Killer moves:
+Best moves:
 
 Cards: 1896 ms
 Depth: 525 ms

@@ -5,8 +5,8 @@ public class Stats {
         long ttLookups = 0;
         long ttHits = 0;
 
-        long killerMoveLookups = 0;
-        long killerMoveHits = 0;
+        long bestMoveLookups = 0;
+        long bestMoveHits = 0;
 
         long statesEvaluated = 0;
         long quiescenceStatesEvaluated = 0;
@@ -42,8 +42,8 @@ public class Stats {
 
     void ttLookup(int ply) { ++plyStats[ply].ttLookups; }
     void ttHit(int ply) { ++plyStats[ply].ttHits; }
-    void killerMoveLookup(int ply) { ++plyStats[ply].killerMoveLookups; }
-    void killerMoveHit(int ply) { ++plyStats[ply].killerMoveHits; }
+    void bestMoveLookup(int ply) { ++plyStats[ply].bestMoveLookups; }
+    void bestMoveHit(int ply) { ++plyStats[ply].bestMoveHits; }
 
     public long getStatesEvaluated() { return statesEvaluated; }
     public long getQuiescenceStatesEvaluated() { return quiescenceStatesEvaluated; }
@@ -69,28 +69,28 @@ public class Stats {
         stats = new StringBuilder();
         sumHits = sumLookups = 0;
         for (int ply = 0; ply < Searcher.MAX_DEPTH && plyStats[ply].statesEvaluated > 0; ++ply) {
-            stats.append(String.format(" %d: %.2f%% ", ply + 1, 100.0*plyStats[ply].killerMoveHits/plyStats[ply].killerMoveLookups));
-            sumHits += plyStats[ply].killerMoveHits;
-            sumLookups += plyStats[ply].killerMoveLookups;
+            stats.append(String.format(" %d: %.2f%% ", ply + 1, 100.0*plyStats[ply].bestMoveHits/plyStats[ply].bestMoveLookups));
+            sumHits += plyStats[ply].bestMoveHits;
+            sumLookups += plyStats[ply].bestMoveLookups;
         }
-        System.out.printf("Killer move hit rate: %.2f %% (%d / %d) --%s%n", 100.0*sumHits/sumLookups, sumHits, sumLookups, stats);
+        System.out.printf("Best move hit rate: %.2f %% (%d / %d) --%s%n", 100.0*sumHits/sumLookups, sumHits, sumLookups, stats);
 
         stats = new StringBuilder();
         sumHits = sumLookups = 0;
         int ply = 0;
         for (ply = 0; ply < Searcher.MAX_DEPTH && plyStats[ply].statesEvaluated > 0; ++ply) {
-            stats.append(String.format(" %d: %.2f ", ply + 1, (double)plyStats[ply].statesEvaluated/plyStats[ply].killerMoveLookups));
+            stats.append(String.format(" %d: %.2f ", ply + 1, (double)plyStats[ply].statesEvaluated/plyStats[ply].bestMoveLookups));
             sumHits += plyStats[ply].statesEvaluated;
-            sumLookups += plyStats[ply].killerMoveLookups;
+            sumLookups += plyStats[ply].bestMoveLookups;
         }
         System.out.printf("Branching factor: %.2f --%s%n", (double)sumHits/sumLookups, stats);
 
         stats = new StringBuilder();
         sumHits = sumLookups = 0;
-        for (; ply < Searcher.MAX_DEPTH && plyStats[ply].killerMoveLookups > 0; ++ply) {
-            stats.append(String.format(" %d: %.2f ", ply + 1, (double)plyStats[ply].quiescenceStatesEvaluated/plyStats[ply].killerMoveLookups));
+        for (; ply < Searcher.MAX_DEPTH && plyStats[ply].bestMoveLookups > 0; ++ply) {
+            stats.append(String.format(" %d: %.2f ", ply + 1, (double)plyStats[ply].quiescenceStatesEvaluated/plyStats[ply].bestMoveLookups));
             sumHits += plyStats[ply].statesEvaluated;
-            sumLookups += plyStats[ply].killerMoveLookups;
+            sumLookups += plyStats[ply].bestMoveLookups;
         }
         System.out.printf("Quiescence branching factor: %s%n", stats);
     }

@@ -1,5 +1,8 @@
 package onitama.ai;
 
+import java.util.Arrays;
+import java.util.Comparator;
+
 import onitama.model.Card;
 import onitama.model.CardState;
 import onitama.model.GameDefinition;
@@ -8,10 +11,10 @@ import onitama.ui.Output;
 
 /**
  * Improvements:
- * - Transposition table. By itself this improved search times by around 25%. Moreover, it makes it possible to store killer moves.
- * - Killer moves. Resulted in roughly 5x faster search times.
- * - Two killer moves. Tried this, and it did not decrease the number of states visited. If anything it did the opposite. Unclear why, I debugged the
- *   implementation and it seemed to work as intended. Possibly the two killer moves tend to be similar to each other (such as grabbing a certain
+ * - Transposition table. By itself this improved search times by around 25%. Moreover, it makes it possible to store the best move for each node.
+ * - Best move. Found during iterative deepening, stored in the TT, and searched first. Resulted in roughly 5x faster search times.
+ * - Two best moves. Tried this, and it did not decrease the number of states visited. If anything it did the opposite. Unclear why, I debugged the
+ *   implementation and it seemed to work as intended. Possibly the two best moves tend to be similar to each other (such as grabbing a certain
  *   opponent piece, leading to material difference and a high score), and in the case that the first move fails to produce a cut-off, a more different
  *   move is needed.
  * - Changed evaluation function from (piece count & king distance) to (piece count & weighted piece position). This resulted in a 90% win rate against
@@ -30,9 +33,11 @@ import onitama.ui.Output;
  * - Bitboards for move generation and validation. This resulted in a 4x speedup over iterating over all board squares and moves.
  * - Storing the result from the quiescence search in the TT (or even use the TT for all quiescence nodes). Preliminary testing to store and retrieve
  *   the quiescence scores actually made the search take twice as long. Should experiment more with this, it feels like it could be improved.
+ * - Move ordering. Made a huge difference. Most important was capture moves: Instead of trying the best move (from the TT) followed by all other moves
+ *   unordered, try the best move, then captures, then non-captures. This resulted in 10-20x less nodes visited overall. Visiting winning positions first
+ *   reduced the number of visited nodes by another 20%. Finally, history heuristic was implemented, which cut the number of visited nodes in half.
  *
  * Ideas:
- * - Generate bit boards for each card/move and for each position.
  * - Optimize entries in TT table (high depth, exact scores)
  * - Pondering
  */
@@ -75,6 +80,8 @@ public class Searcher {
     /** Triangular table of principal variations (best moves) for each ply. */
     int[] pvTable = new int[MAX_DEPTH * (MAX_DEPTH + 1) / 2];
     int[] pvLength = new int[MAX_DEPTH];
+
+    public long[][][] historyTable = new long[2][NN][NN];
 
     public Stats stats;
 
@@ -157,7 +164,7 @@ public class Searcher {
             pvSb.append(String.format("%s %c%c-%c%c", move.card.name, 'a'+move.px, '5'-move.py, 'a'+move.nx, '5'-move.ny));
         }
 
-        return String.format("%2d%2s%s%6d   %s", currentDepthSearched + 1, depthComplete ? "->" : "  ", timeStr, score, pvSb);
+        return String.format("%2d%2s%s%6d   %s", currentDepthSearched, depthComplete ? "->" : "  ", timeStr, score, pvSb);
     }
 
     Timer timer;
@@ -202,7 +209,7 @@ public class Searcher {
         for (currentDepthSearched = 1; currentDepthSearched <= nominalDepth && Math.abs(score) != WIN_SCORE; ++currentDepthSearched) {
             stats.resetDepthSeen();
 
-//          score = negamax(initialPlayer, searchDepth, 99, INF_SCORE);
+//          score = negamax(initialPlayer, currentDepthSearched, 0, 0, 99, INF_SCORE);
 //          score = negamax(initialPlayer, searchDepth, -INF_SCORE, -99);
             score = negamax(initialPlayer, currentDepthSearched, 0, 0, -INF_SCORE, INF_SCORE);
 
@@ -303,7 +310,7 @@ public class Searcher {
         }
 
         int bestScore = -INF_SCORE;
-        int killerOldPos = NN, killerCard = 0, killerNewPos = 0;
+        int bestMoveOldPos = NN, bestMoveCard = 0, bestMoveNewPos = 0;
 
         int pvNextIdx = pvIdx + MAX_DEPTH - ply;
 
@@ -327,7 +334,7 @@ public class Searcher {
 //                        SPACES.substring(0, (searchDepth - depth)*2), searchDepth - depth, player, mg.px, mg.py, nx, ny, cardState.playerCards[player][mg.card].name, score*(player==0?1:-1), bestScore, alpha, beta, alphaOrig);
 //            }
 //
-//            System.out.printf(" --> KILLER candidate (%d): piece=%d, card=%d, move=%d, score=%d%n", searchDepth - depth, mg.piece, playerCards[player][0].id < playerCards[player][1].id ? mg.card : 1 - mg.card, mg.move / 2, score);
+//            System.out.printf(" --> BEST MOVE candidate (%d): piece=%d, card=%d, move=%d, score=%d%n", searchDepth - depth, mg.piece, playerCards[player][0].id < playerCards[player][1].id ? mg.card : 1 - mg.card, mg.move / 2, score);
 
             if (score > bestScore) {
                 bestScore = score;
@@ -343,11 +350,11 @@ public class Searcher {
                 if (ply == 0)
                     logMove(false, score);
 
-                killerOldPos = mg.oldPos[move];
+                bestMoveOldPos = mg.oldPos[move];
                 int card0 = ((cardBits >> 4 + player * 8) & 15);
                 int card1 = ((cardBits >> 4 + player * 8 + 4) & 15);
-                killerCard = card0 < card1 ? mg.cardUsed[move] : 1 - mg.cardUsed[move]; // 0 = lower card id, 1 = higher (card order may differ)
-                killerNewPos = mg.newPos[move];
+                bestMoveCard = card0 < card1 ? mg.cardUsed[move] : 1 - mg.cardUsed[move]; // 0 = lower card id, 1 = higher (card order may differ)
+                bestMoveNewPos = mg.newPos[move];
 
                 // see if we've reached a state where continued evaluation can not possibly affect the outcome
                 if (score == WIN_SCORE) {
@@ -356,14 +363,21 @@ public class Searcher {
                 }
                 if (alpha >= beta) {
                     stats.alphaBetaCutoff();
+
+                    // update history table
+                    int newPosMask = 1 << mg.newPos[move];
+                    boolean capturedPiece = (bitboardPlayer[1-player] & newPosMask) != 0;
+                    if (!capturedPiece)
+                        historyTable[player][mg.oldPos[move]][mg.newPos[move]] += depth * depth; // give less weight to moves near the leaves, or they will overpower the table
+
                     break;
                 }
             }
         }
 
         int boundType = bestScore <= alphaOrig ? UPPER_BOUND : (bestScore >= beta ? LOWER_BOUND : EXACT_SCORE);
-        tt.put(zobrist, boundType + (depth << 2) + ((bestScore & 255) << 8) + (killerOldPos << 16) + (killerCard << 21) + (killerNewPos << 22));
-//        System.out.printf(" --> KILLER found (%d): piece=%d, card=%d, move=%d, score=%d%n", searchDepth - depth, killerPiece, killerCard, killerMove, bestScore);
+        tt.put(zobrist, boundType + (depth << 2) + ((bestScore & 255) << 8) + (bestMoveOldPos << 16) + (bestMoveCard << 21) + (bestMoveNewPos << 22));
+//        System.out.printf(" --> BEST MOVE found (%d): piece=%d, card=%d, move=%d, score=%d%n", searchDepth - depth, bestMovePiece, bestMoveCard, bestMoveMove, bestScore);
 
         return bestScore;
     }
@@ -378,7 +392,14 @@ public class Searcher {
         final int player;
 
         int[] oldPos = new int[40], cardUsed = new int[40], newPos = new int[40];
+        long[] moveScore = new long[40];
         int moves;
+
+        final long WIN = Long.MAX_VALUE;
+        final long BEST_MOVE = Long.MAX_VALUE - 1;
+        final long CAPTURE = Long.MAX_VALUE - 2;
+        final long NON_KING_MOVE = Long.MAX_VALUE - 3;
+        final long KING_MOVE = Long.MAX_VALUE - 4;
 
         MoveGenerator(int ply, int player) {
             this.ply = ply;
@@ -388,17 +409,18 @@ public class Searcher {
         void generate(int seenState, MoveType moveType) {
             moves = 0;
 
-            // add killer move
-            int killerOldPos = -1, killerCard = -1, killerNewPos = -1;
-            stats.killerMoveLookup(ply);
+            // add best move (found during previous search in iterative deepening and stored in the TT)
+            int bestMoveOldPos = -1, bestMoveCard = -1, bestMoveNewPos = -1;
+            stats.bestMoveLookup(ply);
             if (seenState != TranspositionTable.NO_ENTRY) {
-                stats.killerMoveHit(ply);
-                oldPos[moves] = killerOldPos = (seenState >> 16) & 31;
+                stats.bestMoveHit(ply);
+                oldPos[moves] = bestMoveOldPos = (seenState >> 16) & 31;
                 int seenCard = (seenState >> 21) & 1;
                 int card0 = ((cardBits >> 4 + player * 8) & 15);
                 int card1 = ((cardBits >> 4 + player * 8 + 4) & 15);
-                cardUsed[moves] = killerCard = card0 < card1 ? seenCard : 1 - seenCard; // 0 = lower card id, 1 = higher (card order may differ)
-                newPos[moves] = killerNewPos = (seenState >> 22) & 31;
+                cardUsed[moves] = bestMoveCard = card0 < card1 ? seenCard : 1 - seenCard; // 0 = lower card id, 1 = higher (card order may differ)
+                newPos[moves] = bestMoveNewPos = (seenState >> 22) & 31;
+                moveScore[moves] = BEST_MOVE;
                 ++moves;
             }
 
@@ -420,16 +442,55 @@ public class Searcher {
                         if ((npz = Integer.numberOfTrailingZeros(moveBitmask)) == 32) break;
                         np += npz + 1;
 
-                        if (p == killerOldPos && card == killerCard && np == killerNewPos) continue; // killer move
+                        if (p == bestMoveOldPos && card == bestMoveCard && np == bestMoveNewPos) continue;
 
                         // add move
                         oldPos[moves] = p;
                         cardUsed[moves] = card;
                         newPos[moves] = np;
+
+                        int oldPosMask = 1 << p;
+                        int newPosMask = 1 << np;
+                        int movedPiece = bitboardKing[player] == oldPosMask ? KING : PAWN;
+                        boolean capturedPiece = (bitboardPlayer[1-player] & newPosMask) != 0;
+                        boolean capturedKing = capturedPiece && (bitboardKing[1-player] & newPosMask) != 0;
+
+                        if ((movedPiece == KING && np == N/2 + (player == 0 ? 0 : N*(N-1))) || capturedKing)
+                            moveScore[moves] = WIN;
+                        else if (capturedPiece) moveScore[moves] = CAPTURE;
+                        else moveScore[moves] = historyTable[player][p][np];
+
                         ++moves;
                     }
                 }
             }
+
+            // order moves:
+            // 1. win
+            // 2. best move
+            // 3. captures
+            // 4. history table move
+            int[] oldPos2 = new int[40], cardUsed2 = new int[40], newPos2 = new int[40];
+            Integer[] order = new Integer[40];
+
+            for (int m = 0; m < moves; ++m)
+                order[m] = m;
+
+            Arrays.sort(order, 0, moves, new Comparator<Integer>() {
+                @Override public int compare(Integer i0, Integer i1) {
+                    return moveScore[i1] == moveScore[i0] ? 0 : (moveScore[i1] > moveScore[i0] ? 1 : -1);
+                }
+            });
+
+            for (int m = 0; m < moves; ++m) {
+                oldPos2[m] = oldPos[order[m]];
+                cardUsed2[m] = cardUsed[order[m]];
+                newPos2[m] = newPos[order[m]];
+            }
+
+            oldPos = oldPos2;
+            cardUsed = cardUsed2;
+            newPos = newPos2;
         }
 
         // ----------------
@@ -497,8 +558,6 @@ public class Searcher {
 
     public void printBoard() {
         Output.printBoard(bitboardPlayer, bitboardKing);
-
-//        System.out.printf("\n\nScore: %d%n%n", score());
     }
 
     /** @return Whether the current board is a win for the given player. */

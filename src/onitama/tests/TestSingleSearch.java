@@ -51,6 +51,9 @@ public class TestSingleSearch {
 //        searcher.setState(PLAYER_1, BOARD_GAME_8, new CardState(new Card[][] {{Card.Eel, Card.Frog}, {Card.Dragon, Card.Monkey}}, Card.Crab));
 //        searcher.setState(PLAYER_0, EMPTY_BOARD, new CardState(new Card[][] {{Card.Monkey, Card.Frog}, {Card.Elephant, Card.Boar}}, Card.Cobra)); // from Depth test
 
+//        searcher.setState(PLAYER_0, EMPTY_BOARD, new CardState(new Card[][] {{Card.Crab, Card.Frog}, {Card.Crane, Card.Horse}}, Card.Tiger)); // use this for testing!
+//        searcher.setState(PLAYER_0, EMPTY_BOARD, new CardState(new Card[][] {{Card.Crane, Card.Horse}, {Card.Frog, Card.Eel}}, Card.Monkey)); // use this for testing!
+
         System.out.printf("Transposition table size: %d entries (%.0f MB)%n", searcher.tt.sizeEntries(), searcher.tt.sizeBytes() / 1024.0 / 1024.0);
 
         searcher.printBoard();
