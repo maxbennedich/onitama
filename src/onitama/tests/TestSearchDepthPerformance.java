@@ -675,6 +675,11 @@ Optimized:
 Total states: 19911899 + 4762427 = 24674326
 Total time: 21958 ms
 
+PV-search:
+
+Total states: 18670112 + 4100427 = 22770539
+Total time: 22937 ms
+
  */
 public class TestSearchDepthPerformance {
 

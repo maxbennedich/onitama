@@ -23,7 +23,7 @@ import onitama.ui.Output.OutputLevel;
 import onitama.ui.Player;
 
 public class TestAIVsAI {
-    static final int THREADS = 2;
+    static final int THREADS = 40;
 
     static String EMPTY_BOARD =
             "bbBbb" +
@@ -53,9 +53,14 @@ public class TestAIVsAI {
 //        }
 
         for (int i = 0; i < 2; ++i)
-            players[i] = new AIPlayer(i, new SearchParameters(20, 7, 1_000_000+i));
+            players[i] = new AIPlayer(i, new SearchParameters(23, 50, 5000+i));
 
-        runTest(100);
+        runTest(500);
+
+        for (int i = 0; i < 2; ++i)
+            players[i] = new AIPlayer(i, new SearchParameters(23, 50, 5001-i));
+
+        runTest(500);
     }
 
     private static Pair<Integer, Integer> playCards(CardState cards) {

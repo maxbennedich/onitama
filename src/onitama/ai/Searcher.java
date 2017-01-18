@@ -37,6 +37,9 @@ import onitama.ui.Output;
  *   cut the number of visited nodes in half in the test suite. For a more extensive test searching a 6 piece board to depth 19, the elapsed time
  *   went from 22400 seconds to 23 seconds, with the latter ending up finding the win at move 20 through the TT (the former did not), i.e. it was
  *   at least 1000x times faster, and probably a lot more than that in order to find the same result.
+ * - Principal Variation Search. Trivial change, which reduced the number of visited nodes by roughly 10% on average. For some test cases, it barely
+ *   made a difference, although for some it cut the number of visited nodes in half. Running AI vs AI tests with a fixed time per move (200, 2000
+ *   and 5000 ms) showed a very slight improvement with a 52.5 - 54 % win rate for the PV search version.
  *
  * Ideas:
  * - Optimize entries in TT table (high depth, exact scores)
@@ -211,8 +214,6 @@ public class Searcher {
         for (currentDepthSearched = 1; currentDepthSearched <= nominalDepth && Math.abs(score) != WIN_SCORE; ++currentDepthSearched) {
             stats.resetDepthSeen();
 
-//          score = negamax(initialPlayer, currentDepthSearched, 0, 0, 99, INF_SCORE);
-//          score = negamax(initialPlayer, searchDepth, -INF_SCORE, -99);
             score = negamax(initialPlayer, currentDepthSearched, 0, 0, -INF_SCORE, INF_SCORE);
 
             if (timer.timeIsUp())
@@ -319,12 +320,25 @@ public class Searcher {
         MoveGenerator mg = moveGenerator[ply];
         mg.reset(seenState, MoveType.ALL);
 
+        boolean firstMove = true;
         for (int move; (move = mg.getNextMoveIdx()) != -1; ) {
             stats.stateEvaluated(ply);
             mg.move(move);
 
-            // recursive call to find node score
-            int score = -negamax(1 - player, depth - 1, ply + 1, pvNextIdx, -beta, -alpha);
+            // principal variation search (recursive call to find node score)
+            int score;
+            if ((timer.maxTimeMs & 1) == 0) {
+                score = -negamax(1 - player, depth - 1, ply + 1, pvNextIdx, -beta, -alpha);
+            } else {
+                if (firstMove) {
+                    score = -negamax(1 - player, depth - 1, ply + 1, pvNextIdx, -beta, -alpha);
+                    firstMove = false;
+                } else {
+                    score = -negamax(1 - player, depth - 1, ply + 1, pvNextIdx, -alpha - 1, -alpha); // null window search
+                    if (score > alpha && score < beta) // if it failed high, search again but the entire window
+                        score = -negamax(1 - player, depth - 1, ply + 1, pvNextIdx, -beta, -alpha);
+                }
+            }
             if (timer.timeIsUp()) return TIME_OUT_SCORE;
 
             // undo move
