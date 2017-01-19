@@ -15,7 +15,8 @@ import onitama.ui.Output;
  *   opponent piece, leading to material difference and a high score), and in the case that the first move fails to produce a cut-off, a more different
  *   move is needed.
  * - Changed evaluation function from (piece count & king distance) to (piece count & weighted piece position). This resulted in a 90% win rate against
- *   an AI with the old function. That's a better improvement than increasing the search depth by 1!
+ *   an AI with the old function. That's a better improvement than increasing the search depth by 1! Adding mobility to the equation did not improve
+ *   the win rate.
  * - Quiescence search. If there are pending captures or wins once the horizon node is reached, keep searching until a quiet stage is reached. This resulted
  *   in an 80-90% win rate against an AI without quiescence search with the same nominal depth. However, since it searches more states, it uses a bit more
  *   time. Adjusting for this, i.e. searching at unlimited depth (with iterative deepening) for a fixed period of time per move, the win rate was 63-68%
@@ -50,7 +51,7 @@ public class Searcher {
     static final int NO_SCORE = 1000; // some score that will never occur
     static final int INF_SCORE = 999; // "infinite" alpha beta values
     static final int TIME_OUT_SCORE = 998; // invalid score indicating that a time out occurred during recursion
-    public static final int WIN_SCORE = 100;
+    public static final int WIN_SCORE = 500;
 
     public static final int N = 5; // board dimension
     public static final int NN = N*N; // board dimension
@@ -291,8 +292,8 @@ public class Searcher {
 
         if (seenState != TranspositionTable.NO_ENTRY) {
             int seenDepth = (seenState >> 2) & 63;
-            int seenScore = (seenState >> 8) & 255;
-            if (seenScore >= 128) seenScore |= ~255; // to support negative numbers
+            int seenScore = (seenState >> 8) & 1023;
+            if (seenScore >= 512) seenScore |= ~1023; // to support negative numbers
             if (seenDepth >= depth || seenScore == WIN_SCORE || seenScore == -WIN_SCORE) {
                 // we've visited this exact state before, at the same or earlier move, so we know the score or its bound
                 stats.ttHit(ply);
@@ -327,17 +328,13 @@ public class Searcher {
 
             // principal variation search (recursive call to find node score)
             int score;
-            if ((timer.maxTimeMs & 1) == 0) {
+            if (firstMove) {
                 score = -negamax(1 - player, depth - 1, ply + 1, pvNextIdx, -beta, -alpha);
+                firstMove = false;
             } else {
-                if (firstMove) {
+                score = -negamax(1 - player, depth - 1, ply + 1, pvNextIdx, -alpha - 1, -alpha); // null window search
+                if (score > alpha && score < beta) // if it failed high, search again but the entire window
                     score = -negamax(1 - player, depth - 1, ply + 1, pvNextIdx, -beta, -alpha);
-                    firstMove = false;
-                } else {
-                    score = -negamax(1 - player, depth - 1, ply + 1, pvNextIdx, -alpha - 1, -alpha); // null window search
-                    if (score > alpha && score < beta) // if it failed high, search again but the entire window
-                        score = -negamax(1 - player, depth - 1, ply + 1, pvNextIdx, -beta, -alpha);
-                }
             }
             if (timer.timeIsUp()) return TIME_OUT_SCORE;
 
@@ -391,7 +388,7 @@ public class Searcher {
         }
 
         int boundType = bestScore <= alphaOrig ? UPPER_BOUND : (bestScore >= beta ? LOWER_BOUND : EXACT_SCORE);
-        tt.put(zobrist, boundType + (depth << 2) + ((bestScore & 255) << 8) + (bestMoveOldPos << 16) + (bestMoveCard << 21) + (bestMoveNewPos << 22));
+        tt.put(zobrist, boundType + (depth << 2) + ((bestScore & 1023) << 8) + (bestMoveOldPos << 18) + (bestMoveCard << 23) + (bestMoveNewPos << 24));
 //        System.out.printf(" --> BEST MOVE found (%d): piece=%d, card=%d, move=%d, score=%d%n", searchDepth - depth, bestMovePiece, bestMoveCard, bestMoveMove, bestScore);
 
         return bestScore;
@@ -463,12 +460,12 @@ public class Searcher {
             stats.bestMoveLookup(ply);
             if (seenState != TranspositionTable.NO_ENTRY) {
                 stats.bestMoveHit(ply);
-                oldPos[0] = bestMoveOldPos = (seenState >> 16) & 31;
-                int seenCard = (seenState >> 21) & 1;
+                oldPos[0] = bestMoveOldPos = (seenState >> 18) & 31;
+                int seenCard = (seenState >> 23) & 1;
                 int card0 = ((cardBits >> 4 + player * 8) & 15);
                 int card1 = ((cardBits >> 4 + player * 8 + 4) & 15);
                 cardUsed[0] = bestMoveCard = card0 < card1 ? seenCard : 1 - seenCard; // 0 = lower card id, 1 = higher (card order may differ)
-                newPos[0] = bestMoveNewPos = (seenState >> 22) & 31;
+                newPos[0] = bestMoveNewPos = (seenState >> 24) & 31;
                 generatedBestMove = true;
             } else {
                 bestMoveOldPos = bestMoveCard = bestMoveNewPos = -1;
@@ -611,7 +608,8 @@ public class Searcher {
                 3 * Integer.bitCount(bitboardPlayer[1] & SCORE_3) +
                 4 * Integer.bitCount(bitboardPlayer[1] & SCORE_4);
 
-        int score = (Integer.bitCount(bitboardPlayer[0]) - Integer.bitCount(bitboardPlayer[1]))*20 + (pieceScore0 - pieceScore1);
+        int materialDifference = Integer.bitCount(bitboardPlayer[0]) - Integer.bitCount(bitboardPlayer[1]);
+        int score = materialDifference*100 + (pieceScore0 - pieceScore1)*1;
 
         return playerToEvaluate == 0 ? score : -score;
     }

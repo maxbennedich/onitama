@@ -23,7 +23,7 @@ import onitama.ui.Output.OutputLevel;
 import onitama.ui.Player;
 
 public class TestAIVsAI {
-    static final int THREADS = 40;
+    static final int THREADS = 2;
 
     static String EMPTY_BOARD =
             "bbBbb" +
@@ -53,14 +53,14 @@ public class TestAIVsAI {
 //        }
 
         for (int i = 0; i < 2; ++i)
-            players[i] = new AIPlayer(i, new SearchParameters(23, 50, 5000+i));
+            players[i] = new AIPlayer(i, new SearchParameters(20, 50, 30+i));
 
-        runTest(500);
+        runTest(100);
 
         for (int i = 0; i < 2; ++i)
-            players[i] = new AIPlayer(i, new SearchParameters(23, 50, 5001-i));
+            players[i] = new AIPlayer(i, new SearchParameters(20, 50, 31-i));
 
-        runTest(500);
+        runTest(100);
     }
 
     private static Pair<Integer, Integer> playCards(CardState cards) {
@@ -127,7 +127,8 @@ public class TestAIVsAI {
                             gamesByPlies.put(gameResult.q, ++count);
                         }
                     }
-                    System.out.printf("Hand %d: winner = %d (total %d/%d), plies = %d, %d ms, %s/%s, %s/%s, %s%n", idx, gameResult.p, winCount[0].get(), winCount[1].get(), gameResult.q, time, Card.CARDS[c0].name, Card.CARDS[c1].name, Card.CARDS[c2].name, Card.CARDS[c3].name, Card.CARDS[c4].name);
+                    int wc1 = winCount[0].get(), wc2 = winCount[1].get();
+                    System.out.printf("Hand %d: winner = %d (total %d/%d = %.1f%%), plies = %d, %d ms, %s/%s, %s/%s, %s%n", idx, gameResult.p, wc1, wc2, 100.0*wc1/(wc1+wc2), gameResult.q, time, Card.CARDS[c0].name, Card.CARDS[c1].name, Card.CARDS[c2].name, Card.CARDS[c3].name, Card.CARDS[c4].name);
                 }
             });
             threads[t].start();
@@ -146,7 +147,7 @@ public class TestAIVsAI {
         List<Integer> plies = getPliesList(gamesByPlies);
 //        System.out.printf("Med/max plies: %d / %d%n", getMedian(plies), Collections.max(plies));
 
-        System.out.printf("%d/%d: %.0f%% (%d / %d) -- %.0f s%n", depth[0], depth[1], 100.0 * c0 / (c0 + c1), getMedian(plies), Collections.max(plies), totalTime / 1000.0);
+        System.out.printf("%d/%d: %.1f%% (%d / %d) -- %.0f s%n", depth[0], depth[1], 100.0 * c0 / (c0 + c1), getMedian(plies), Collections.max(plies), totalTime / 1000.0);
 
 //        System.out.println();
 //        gamesByPlies.keySet().stream().sorted().forEach(plies -> {

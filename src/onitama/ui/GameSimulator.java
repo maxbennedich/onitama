@@ -6,7 +6,7 @@ import onitama.model.Pair;
 
 public class GameSimulator {
     /** To prevent stuck games when AI plays itself. */
-    public static final int MAX_PLIES_BEFORE_DRAW = 200;
+    public static final int MAX_PLIES_BEFORE_DRAW = 120;
 
     Player[] players;
     GameState gameState;
