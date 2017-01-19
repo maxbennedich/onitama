@@ -283,6 +283,31 @@ public class Searcher {
         if (depth == 0)
             return quiesce(player, ply, 0, pvIdx, alpha, beta);
 
+        if (depth == 8) {
+            int bound;
+            int DP = 4;
+            double T = 1.5;
+            double a = 1;
+            double b = 0;
+            double sig = 60;
+
+            // v >= beta with prob. of at least p? yes => cutoff
+            if (beta != INF_SCORE) {
+                bound = (int)( ( T * sig + beta - b) / a + 0.5);
+                int s1 = negamax(player, DP, ply, pvIdx, bound-1, bound);
+                if (s1 >= bound)
+                   return beta;
+            }
+
+            // v <= alpha with prob. of at least p? yes => cutoff
+            if (alpha != -INF_SCORE) {
+                bound = (int)( (-T * sig + alpha - b) / a + 0.5);
+                int s2 = negamax(player, DP, ply, pvIdx, bound, bound+1);
+                if (s2 <= bound)
+                   return alpha;
+            }
+         }
+
         stats.depthSeen(ply);
 
         int alphaOrig = alpha;
