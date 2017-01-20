@@ -47,6 +47,8 @@ import onitama.ui.Output;
  *   made a difference, although for some it cut the number of visited nodes in half. Running AI vs AI tests with a fixed time per move (200, 2000
  *   and 5000 ms) showed a very slight improvement with a 52.5 - 54 % win rate for the PV search version.
  * - Aspiration windows. Experimented with this and did not find that it helped.
+ * - Check evasion during quiescence search: this did not help, it lead to quite a bit more nodes searched during the quiescence search, without
+ *   finding a win faster.
  *
  * Ideas:
  * - Optimize entries in TT table (high depth, exact scores)
@@ -483,6 +485,53 @@ public class Searcher {
             generatedAllMoves = true;
             totalMoves = 0;
             movesReturned = 0;
+
+            if (moveType == MoveType.CAPTURE_OR_WIN && (timer.maxTimeMs & 1) == 1) {
+                // add check evasions
+                // can opponent check me? can any opponent piece move to king, or alternatively, can my king capture any piece
+                // using reverse moves
+                int p = Integer.numberOfTrailingZeros(bitboardKing[player]); // position of my king
+                boolean check = false;
+                for (int card = 0; card < GameDefinition.CARDS_PER_PLAYER && !check; ++card) {
+                    int reverseMoveBitmask = Card.CARDS[((cardBits >> 4 + (1-player) * 8 + card * 4) & 15)].moveBitmask[player][p];
+                    check = (reverseMoveBitmask & bitboardPlayer[1 - player]) != 0;
+//                    if (check && Card.CARDS[((cardBits >> 4 + (1-player) * 8 + card * 4) & 15)].name.equals("Crab") && player == 0) {
+//                        System.out.printf("King is checked for player %d with card %s, p=%d, reverse=%s, check=%s%n", player+1, Card.CARDS[((cardBits >> 4 + (1-player) * 8 + card * 4) & 15)].name, p, Integer.toBinaryString(reverseMoveBitmask), Integer.toBinaryString((reverseMoveBitmask & bitboardPlayer[1 - player])));
+//                        printBoard();
+//                        Output.printCards(new CardState(new Card[][] {{Card.CARDS[(cardBits >> 4) & 15], Card.CARDS[(cardBits >> 8) & 15]},{Card.CARDS[(cardBits >> 12) & 15], Card.CARDS[(cardBits >> 16) & 15]}}, Card.CARDS[cardBits & 15]));
+//                    }
+                }
+                if (check) {
+                    // we are checked -- generate all moves for the king
+                    for (int card = 0; card < GameDefinition.CARDS_PER_PLAYER; ++card) {
+                        int moveBitmask = Card.CARDS[((cardBits >> 4 + player * 8 + card * 4) & 15)].moveBitmask[player][p];
+
+                        moveBitmask &= ~bitboardPlayer[player]; // exclude moves onto oneself
+                        moveBitmask &= ~(bitboardPlayer[1-player] | GameDefinition.WIN_BITMASK[player]); // exclude captures and wins -- they will be added separately
+
+                        for (int np = -1, npz = -1; ; ) {
+                            moveBitmask >>= (npz+1);
+                            if ((npz = Integer.numberOfTrailingZeros(moveBitmask)) == 32) break;
+                            np += npz + 1;
+
+                            if (p == bestMoveOldPos && card == bestMoveCard && np == bestMoveNewPos) continue;
+
+                            // add move
+                            oldPos[totalMoves] = p;
+                            cardUsed[totalMoves] = card;
+                            newPos[totalMoves] = np;
+
+                            int newPosMask = 1 << np;
+                            if ((bitboardKing[1-player] & newPosMask) != 0) moveScore[totalMoves] = WIN; // captured king
+                            else if ((bitboardKing[player] == (1 << p) && np == GameDefinition.WIN_POSITION[player])) moveScore[totalMoves] = WIN; // moved king to winning position
+                            else if ((bitboardPlayer[1-player] & newPosMask) != 0) moveScore[totalMoves] = CAPTURE; // captured piece
+                            else moveScore[totalMoves] = historyTable[player][p][np];
+
+                            ++totalMoves;
+                        }
+                    }
+                }
+            }
 
             for (int playerBitmask = bitboardPlayer[player], p = -1, pz = -1; ; ) {
                 playerBitmask >>= (pz+1);
