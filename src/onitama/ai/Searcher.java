@@ -8,7 +8,12 @@ import onitama.ui.Output;
 
 /**
  * Improvements:
- * - Transposition table. By itself this improved search times by around 25%. Moreover, it makes it possible to store the best move for each node.
+ * - Transposition table. By itself this improved search times by around 25%, using a replace-always scheme. Moreover, it makes it possible to store the
+ *   best move for each node. Changing this to a depth-preferred scheme gave much better results when the TT was filling up (>25% full), but sometimes
+ *   resulted in worse results. Using a two-tier table, storing one depth-preferred entry and one most recent entry, gave the best result. Huge improvements
+ *   were seen for searches where the TT was filling up. However, for situations where the TT is sparsely populated, such as fast game play with a large TT,
+ *   this does not matter much. An example search from the initial board state with a 29 bit (6 GB) TT searched 22 plies in 10742 seconds and 34754M +
+ *   4085M nodes with a replace-always scheme, and 1935 s and 5721M + 730M nodes with the two-tier scheme (>90% populated TT).
  * - Best move. Found during iterative deepening, stored in the TT, and searched first. Resulted in roughly 5x faster search times.
  * - Two best moves. Tried this, and it did not decrease the number of states visited. If anything it did the opposite. Unclear why, I debugged the
  *   implementation and it seemed to work as intended. Possibly the two best moves tend to be similar to each other (such as grabbing a certain
@@ -215,6 +220,7 @@ public class Searcher {
         for (currentDepthSearched = 1; currentDepthSearched <= nominalDepth && Math.abs(score) != WIN_SCORE; ++currentDepthSearched) {
             stats.resetDepthSeen();
 
+            // TODO aspiration search
             score = negamax(initialPlayer, currentDepthSearched, 0, 0, -INF_SCORE, INF_SCORE);
 
             if (timer.timeIsUp())
@@ -243,7 +249,7 @@ public class Searcher {
         int pvNextIdx = pvIdx + MAX_DEPTH - ply;
 
         MoveGenerator mg = moveGenerator[ply];
-        mg.reset(TranspositionTable.NO_ENTRY, MoveType.CAPTURE_OR_WIN);
+        mg.reset(TranspositionTable.NO_ENTRY, MoveType.CAPTURE_OR_WIN); // TODO include checks and check evasions!
 
         for (int move; (move = mg.getNextMoveIdx()) != -1; ) {
             stats.quiescenceStateEvaluated(ply);

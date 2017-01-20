@@ -680,6 +680,11 @@ PV-search:
 Total states: 18670112 + 4100427 = 22770539
 Total time: 22937 ms
 
+Two tier TT:
+
+Total states: 18640739 + 4090958 = 22731697
+Total time: 23607 ms
+
  */
 public class TestSearchDepthPerformance {
 

@@ -1,7 +1,8 @@
 package onitama.ai;
 
 /**
- * Hash map of seen board states with fixed size which overwrites existing entries.
+ * Hash map of seen board states with fixed size which uses a two-tier storage scheme, with one depth-preferred entry,
+ * and one replace-always entry.
  *
  * The keys in the map are 64 bit Zobrist keys representing the full state of the board. Although hash collisions
  * are possible due to the birthday paradox and the large number of states visited, they are rare in practice,
@@ -9,58 +10,43 @@ package onitama.ai;
  * for a more in-depth analysis: http://www.craftychess.com/hyatt/collisions.html
  *
  * TODO: make index part of key to compress keys better
- * TODO: don't overwrite entry if depth is less (shallower entries are more valuable)
  */
 public class TranspositionTable {
     public static final int NO_ENTRY = Integer.MAX_VALUE;
 
-    /** Look at this many entries to find a best hash position to replace the state. */
-//    private static final int HASH_WINDOW = 4;
-
     private final int hashBits;
 
     long[] keys;
-    int[] state;
+    int[] states;
 
     public TranspositionTable(int hashBits) {
         this.hashBits = hashBits;
 
         keys = new long[1 << hashBits];
-        state = new int[1 << hashBits];
-
-//      keys = new long[(1 << hashBits) + HASH_WINDOW - 1];
-//      state = new int[(1 << hashBits) + HASH_WINDOW - 1];
+        states = new int[1 << hashBits];
     }
 
-    // XXX this optimization doesn't really help, it reduces the # visited states by 1-3 %, but costs slightly more than it saves
-//    void put(long key, int score) {
-//        int idx = (int)(key & ((1 << hashBits) - 1)) - 1;
-//        for (int n = 0; n < HASH_WINDOW; ++n) {
-//            ++idx;
-//            if (keys[idx] == 0 || keys[idx] == key)
-//                break;
-//        }
-//        keys[idx] = key;
-//        state[idx] = score;
-//    }
-//
-//    int get(long key) {
-//        int idx = (int)(key & ((1 << hashBits) - 1));
-//        for (int n = 0; n < HASH_WINDOW; ++n, ++idx)
-//            if (keys[idx] == key)
-//                return state[idx];
-//        return NO_ENTRY;
-//    }
-
-    void put(long key, int score) {
-        int idx = (int)(key & ((1 << hashBits) - 1));
+    void put(long key, int state) {
+        int idx = (int)(key & ((1 << hashBits) - 2)); // clear last bit (to support two tiers)
+        if (keys[idx] != 0) {
+            int existingDepth = (states[idx] >> 2) & 63;
+            int newDepth = (state >> 2) & 63;
+            if (newDepth >= existingDepth) {
+                keys[idx+1] = keys[idx]; // replace the replace-always entry with the depth-preferred entry
+                states[idx+1] = states[idx];
+            } else {
+                ++idx;
+            }
+        }
         keys[idx] = key;
-        state[idx] = score;
+        states[idx] = state;
     }
 
     int get(long key) {
-        int idx = (int)(key & ((1 << hashBits) - 1));
-        return keys[idx] == key ? state[idx] : NO_ENTRY;
+        int idx = (int)(key & ((1 << hashBits) - 2)); // clear last bit (to support two tiers)
+        if (keys[idx] == key) return states[idx];
+        if (keys[idx+1] == key) return states[idx+1];
+        return NO_ENTRY;
     }
 
     public int sizeEntries() {
@@ -75,7 +61,7 @@ public class TranspositionTable {
     int usedEntries() {
         int used = 0;
         for (int n = 0; n < sizeEntries(); ++n)
-            if (state[n] != 0)
+            if (states[n] != 0)
                 ++used;
         return used;
     }

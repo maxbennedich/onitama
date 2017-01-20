@@ -48,10 +48,10 @@ public class TestVariousBoardsAndCards {
     public static void main(String ... args) throws Exception {
         Searcher.LOGGING = false;
 
-        new TestVariousBoardsAndCards().testDepth(10);
+        new TestVariousBoardsAndCards().testBoard();
     }
 
-    private void testDepth(int maxDepth) {
+    private void testBoard() {
         long totalTime = System.currentTimeMillis();
         long totalStates = 0, totalQStates = 0;
 
