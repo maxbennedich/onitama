@@ -46,6 +46,7 @@ import onitama.ui.Output;
  * - Principal Variation Search. Trivial change, which reduced the number of visited nodes by roughly 10% on average. For some test cases, it barely
  *   made a difference, although for some it cut the number of visited nodes in half. Running AI vs AI tests with a fixed time per move (200, 2000
  *   and 5000 ms) showed a very slight improvement with a 52.5 - 54 % win rate for the PV search version.
+ * - Aspiration windows. Experimented with this and did not find that it helped.
  *
  * Ideas:
  * - Optimize entries in TT table (high depth, exact scores)
@@ -220,11 +221,10 @@ public class Searcher {
         for (currentDepthSearched = 1; currentDepthSearched <= nominalDepth && Math.abs(score) != WIN_SCORE; ++currentDepthSearched) {
             stats.resetDepthSeen();
 
-            // TODO aspiration search
             score = negamax(initialPlayer, currentDepthSearched, 0, 0, -INF_SCORE, INF_SCORE);
-
             if (timer.timeIsUp())
                 break;
+
             logMove(true, score);
         }
 
