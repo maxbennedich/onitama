@@ -47,10 +47,10 @@ import onitama.ui.Output;
  *   made a difference, although for some it cut the number of visited nodes in half. Running AI vs AI tests with a fixed time per move (200, 2000
  *   and 5000 ms) showed a very slight improvement with a 52.5 - 54 % win rate for the PV search version.
  * - Aspiration windows. Experimented with this and did not find that it helped.
+ * - Check evasion during quiescence search: this did not help, it lead to quite a bit more nodes searched during the quiescence search, without
+ *   finding a win faster.
  *
- * Ideas:
- * - Optimize entries in TT table (high depth, exact scores)
- * - Try best move first, only run move generation if no cut-off
+ * Future ideas:
  * - Pondering
  */
 public class Searcher {
@@ -210,6 +210,11 @@ public class Searcher {
         long elapsedTimeMs() {
             return System.currentTimeMillis() - searchStartTime;
         }
+
+        /** Call this method to stop the search before it has timed out. */
+        void stopSearch() {
+            timeUp = true;
+        }
     }
 
     public int start(long maxTimeMs) {
@@ -229,6 +234,10 @@ public class Searcher {
         }
 
         return score;
+    }
+
+    public void stop() {
+        timer.stopSearch();
     }
 
     int quiesce(int player, int ply, int qd, int pvIdx, int alpha, int beta) {
