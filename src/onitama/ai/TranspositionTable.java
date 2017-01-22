@@ -14,20 +14,20 @@ package onitama.ai;
 public class TranspositionTable {
     public static final int NO_ENTRY = Integer.MAX_VALUE;
 
-    private final int hashBits;
+    private int ttBits;
 
     long[] keys;
     int[] states;
 
-    public TranspositionTable(int hashBits) {
-        this.hashBits = hashBits;
+    public TranspositionTable(int ttBits) {
+        this.ttBits = ttBits;
 
-        keys = new long[1 << hashBits];
-        states = new int[1 << hashBits];
+        keys = new long[1 << ttBits];
+        states = new int[1 << ttBits];
     }
 
     void put(long key, int state) {
-        int idx = (int)(key & ((1 << hashBits) - 2)); // clear last bit (to support two tiers)
+        int idx = (int)(key & ((1 << ttBits) - 2)); // clear last bit (to support two tiers)
         if (keys[idx] != 0) {
             int existingDepth = (states[idx] >> 2) & 63;
             int newDepth = (state >> 2) & 63;
@@ -43,18 +43,34 @@ public class TranspositionTable {
     }
 
     int get(long key) {
-        int idx = (int)(key & ((1 << hashBits) - 2)); // clear last bit (to support two tiers)
+        int idx = (int)(key & ((1 << ttBits) - 2)); // clear last bit (to support two tiers)
         if (keys[idx] == key) return states[idx];
         if (keys[idx+1] == key) return states[idx+1];
         return NO_ENTRY;
     }
 
     public int sizeEntries() {
-        return 1 << hashBits;
+        return 1 << ttBits;
     }
 
     public long sizeBytes() {
         return (long)sizeEntries() * (8 + 4);
+    }
+
+    /** Changes the size of this table, carrying over all stored entries. */
+    void resize(int newTTBits) {
+        if (newTTBits == ttBits)
+            return;
+
+        TranspositionTable newTT = new TranspositionTable(newTTBits);
+
+        for (int n = 0; n < 1 << ttBits; ++n)
+            if (keys[n] != 0)
+                newTT.put(keys[n], states[n]);
+
+        ttBits = newTTBits;
+        keys = newTT.keys;
+        states = newTT.states;
     }
 
     // Slow since it loops over all entries. (Intended for post-game analysis only.)

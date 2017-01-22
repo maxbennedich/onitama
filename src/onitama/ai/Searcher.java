@@ -1,9 +1,14 @@
 package onitama.ai;
 
+import java.util.ArrayList;
+import java.util.List;
+
 import onitama.model.Card;
 import onitama.model.CardState;
 import onitama.model.GameDefinition;
+import onitama.model.GameState;
 import onitama.model.Move;
+import onitama.model.Pair;
 import onitama.ui.Output;
 
 /**
@@ -49,6 +54,10 @@ import onitama.ui.Output;
  * - Aspiration windows. Experimented with this and did not find that it helped.
  * - Check evasion during quiescence search: this did not help, it lead to quite a bit more nodes searched during the quiescence search, without
  *   finding a win faster.
+ * - Dynamic resizing of TT. This allows the TT to change size during the search, carrying over all stored entries. Experiments show that this works
+ *   quite well (at least with a two-tiered TT); a search with a small TT that is later adjusted to a larger size, does not seem to suffer in the
+ *   long run from initially having started out small. One use case for this feature is to start many searches simultaneously with small TTs, and
+ *   increasing the size gradually as some searches finish and there are fewer remaining.
  *
  * Future ideas:
  * - Pondering
@@ -93,11 +102,17 @@ public class Searcher {
     int[] pvTable = new int[MAX_DEPTH * (MAX_DEPTH + 1) / 2];
     int[] pvLength = new int[MAX_DEPTH];
 
+    int pvScore = NO_SCORE;
+    int pvScoreDepth = -1;
+
     public long[][][] historyTable = new long[2][NN][NN];
 
     public Stats stats;
 
     public TranspositionTable tt;
+
+    /** If this is not 0, the transposition table will be resized to this bit size at the earliest opportunity. */
+    private volatile int requestedTTResizeBits = 0;
 
     MoveGenerator[] moveGenerator = new MoveGenerator[MAX_DEPTH];
     public int currentDepthSearched;
@@ -154,7 +169,18 @@ public class Searcher {
         return getPVMove(0);
     }
 
+    public int getPVScore() {
+        return pvScore;
+    }
+
+    public int getPVScoreDepth() {
+        return pvScoreDepth;
+    }
+
     void logMove(boolean depthComplete, int score) {
+        pvScore = score;
+        pvScoreDepth = currentDepthSearched;
+
         if (!LOGGING) return;
 
         double time = timer.elapsedTimeMs() / 1000.0;
@@ -186,6 +212,12 @@ public class Searcher {
         long maxTimeMs;
         boolean timeUp = false;
 
+        volatile boolean requestSuspension = false;
+        volatile boolean suspended = false;
+
+        Object SUSPENSION_REQUESTED_LOCK = new Object();
+        Object SUSPENDED_LOCK = new Object();
+
         // Check for time-out every this number of states, to prevent calling System.currentTimeMillis() for every node
         private static final long TIMEOUT_CHECK_FREQUENCY_STATES = 10000;
 
@@ -200,20 +232,57 @@ public class Searcher {
             if (timeUp)
                 return true;
 
+            // no need to check for suspension/termination too often since it is quite resource intensive
             if (stats.getStatesEvaluated() < nextStatesEvaluated)
                 return false;
+
+            checkForSuspension();
 
             nextStatesEvaluated = stats.getStatesEvaluated() + TIMEOUT_CHECK_FREQUENCY_STATES;
             return timeUp = elapsedTimeMs() > maxTimeMs;
         }
 
-        long elapsedTimeMs() {
-            return System.currentTimeMillis() - searchStartTime;
+        void checkForSuspension() {
+            if (requestSuspension) {
+                // let caller know that we are suspended
+                suspended = true;
+                synchronized (SUSPENSION_REQUESTED_LOCK) {
+                    SUSPENSION_REQUESTED_LOCK.notifyAll();
+                }
+
+                // wait until resumed
+                synchronized (SUSPENDED_LOCK) {
+                    while (requestSuspension) {
+                        try { SUSPENDED_LOCK.wait(); }
+                        catch (InterruptedException ignore) { }
+                    }
+                }
+
+                suspended = false;
+            }
         }
 
-        /** Call this method to stop the search before it has timed out. */
-        void stopSearch() {
-            timeUp = true;
+        void suspend() {
+            requestSuspension = true;
+
+            // wait for the thread to actually suspend itself
+            synchronized (SUSPENSION_REQUESTED_LOCK) {
+                while (!suspended) {
+                    try { SUSPENSION_REQUESTED_LOCK.wait(); }
+                    catch (InterruptedException ignore) { }
+                }
+            }
+        }
+
+        void resume() {
+            requestSuspension = false;
+            synchronized (SUSPENDED_LOCK) {
+                SUSPENDED_LOCK.notifyAll();
+            }
+        }
+
+        long elapsedTimeMs() {
+            return System.currentTimeMillis() - searchStartTime;
         }
     }
 
@@ -236,8 +305,27 @@ public class Searcher {
         return score;
     }
 
+    /**
+     * Call this method to gracefully stop an ongoing search. The best move found so far can be obtained through {@link #getBestMove()}.
+     * This call is not blocking. The search will typically stop within a few milliseconds.
+     */
     public void stop() {
-        timer.stopSearch();
+        timer.timeUp = true;
+    }
+
+    /** Suspend (pause) search. Blocking call. Does not return until the search is suspended, which will typically happen within a few milliseconds. */
+    public void suspend() {
+        timer.suspend();
+    }
+
+    /** Resume a paused search. */
+    public void resume() {
+        timer.resume();
+    }
+
+    /** Issues a resize request to the transposition table. The resize will typically happen within a few milliseconds. */
+    public void resizeTTAsync(int ttBits) {
+        requestedTTResizeBits = ttBits;
     }
 
     int quiesce(int player, int ply, int qd, int pvIdx, int alpha, int beta) {
@@ -258,7 +346,7 @@ public class Searcher {
         int pvNextIdx = pvIdx + MAX_DEPTH - ply;
 
         MoveGenerator mg = moveGenerator[ply];
-        mg.reset(TranspositionTable.NO_ENTRY, MoveType.CAPTURE_OR_WIN); // TODO include checks and check evasions!
+        mg.reset(TranspositionTable.NO_ENTRY, MoveType.CAPTURE_OR_WIN);
 
         for (int move; (move = mg.getNextMoveIdx()) != -1; ) {
             stats.quiescenceStateEvaluated(ply);
@@ -301,6 +389,11 @@ public class Searcher {
         stats.depthSeen(ply);
 
         int alphaOrig = alpha;
+
+        if (requestedTTResizeBits > 0) {
+            tt.resize(requestedTTResizeBits);
+            requestedTTResizeBits = 0;
+        }
 
         int seenState = tt.get(zobrist);
         stats.ttLookup(ply);
@@ -353,16 +446,7 @@ public class Searcher {
             }
             if (timer.timeIsUp()) return TIME_OUT_SCORE;
 
-            // undo move
             mg.unmove(move);
-
-//            if (searchDepth - depth < 1) {
-//                String SPACES = "                                                       ";
-//                System.out.printf("%sMove %d: Player %d moving piece at %d,%d to %d,%d, using %s, score = %d, bestScore = %d, alpha = %d, beta = %d, alphaOrig = %d%n",
-//                        SPACES.substring(0, (searchDepth - depth)*2), searchDepth - depth, player, mg.px, mg.py, nx, ny, cardState.playerCards[player][mg.card].name, score*(player==0?1:-1), bestScore, alpha, beta, alphaOrig);
-//            }
-//
-//            System.out.printf(" --> BEST MOVE candidate (%d): piece=%d, card=%d, move=%d, score=%d%n", searchDepth - depth, mg.piece, playerCards[player][0].id < playerCards[player][1].id ? mg.card : 1 - mg.card, mg.move / 2, score);
 
             if (score > bestScore) {
                 bestScore = score;
@@ -404,7 +488,6 @@ public class Searcher {
 
         int boundType = bestScore <= alphaOrig ? UPPER_BOUND : (bestScore >= beta ? LOWER_BOUND : EXACT_SCORE);
         tt.put(zobrist, boundType + (depth << 2) + ((bestScore & 1023) << 8) + (bestMoveOldPos << 18) + (bestMoveCard << 23) + (bestMoveNewPos << 24));
-//        System.out.printf(" --> BEST MOVE found (%d): piece=%d, card=%d, move=%d, score=%d%n", searchDepth - depth, bestMovePiece, bestMoveCard, bestMoveMove, bestScore);
 
         return bestScore;
     }
@@ -595,6 +678,45 @@ public class Searcher {
 
     public void printBoard() {
         Output.printBoard(bitboardPlayer, bitboardKing);
+    }
+
+    /** Convenience method to get a list of [move strings, game states] resulting from each valid move from the search start position. Not optimized for speed. */
+    public List<Pair<String, GameState>> getAllMoves() {
+        List<Pair<String, GameState>> moves = new ArrayList<>();
+
+        MoveGenerator mg = moveGenerator[0];
+        mg.reset(TranspositionTable.NO_ENTRY, MoveType.ALL);
+        for (int move; (move = mg.getNextMoveIdx()) != -1; ) {
+            mg.move(move);
+
+            int op = mg.oldPos[move], np = mg.newPos[move];
+            String moveString = String.format("%s %c%c%c%c", Card.CARDS[cardBits&15].name, 'a'+(op%N), '5'-(op/N), 'a'+(np%N), '5'-(np/N));
+
+            moves.add(new Pair<>(moveString, new GameState(getCurrentBoard(), getCurrentCardState())));
+
+            mg.unmove(move);
+        }
+
+        return moves;
+    }
+
+    private static char[] BOARD_MARKERS = new char[] {' ', 'w', 'b', 'W', 'B'};
+
+    private String getCurrentBoard() {
+        char[] board = new char[NN];
+        for (int p = 0, bit = 1; p < NN; ++p, bit *= 2) {
+            int c = 0;
+            if ((bitboardKing[0] & bit) != 0) c = 3;
+            else if ((bitboardKing[1] & bit) != 0) c = 4;
+            else if ((bitboardPlayer[0] & bit) != 0) c = 1;
+            else if ((bitboardPlayer[1] & bit) != 0) c = 2;
+            board[p] = BOARD_MARKERS[c];
+        }
+        return new String(board);
+    }
+
+    private CardState getCurrentCardState() {
+        return new CardState(new Card[][] {{Card.CARDS[(cardBits>>4)&15], Card.CARDS[(cardBits>>8)&15]}, {Card.CARDS[(cardBits>>12)&15], Card.CARDS[(cardBits>>16)&15]}}, Card.CARDS[cardBits&15]);
     }
 
     /** @return Whether the current board is a win for the given player. */
