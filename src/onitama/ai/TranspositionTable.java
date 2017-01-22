@@ -1,5 +1,7 @@
 package onitama.ai;
 
+import java.util.concurrent.Semaphore;
+
 /**
  * Hash map of seen board states with fixed size which uses a two-tier storage scheme, with one depth-preferred entry,
  * and one replace-always entry.
@@ -12,7 +14,12 @@ package onitama.ai;
  * TODO: make index part of key to compress keys better
  */
 public class TranspositionTable {
+    public static final int BYTES_PER_ENTRY = 8 + 4;
+
     public static final int NO_ENTRY = Integer.MAX_VALUE;
+
+    /** Semaphore used to prevent tables from different threads from resizing at the same time (which could lead to OOM). */
+    private static final Semaphore RESIZE_SEMAPHORE = new Semaphore(1);
 
     private int ttBits;
 
@@ -54,13 +61,21 @@ public class TranspositionTable {
     }
 
     public long sizeBytes() {
-        return (long)sizeEntries() * (8 + 4);
+        return (long)sizeEntries() * BYTES_PER_ENTRY;
     }
 
-    /** Changes the size of this table, carrying over all stored entries. */
-    void resize(int newTTBits) {
+    /**
+     * Attempts to change the size of this table, carrying over all stored entries.
+     * @return False if another thread is currently doing a resize (two resizes can not run at the same time). Otherwise true.
+     */
+    boolean resize(int newTTBits) {
         if (newTTBits == ttBits)
-            return;
+            return true;
+
+        // The section below will hold on to two TTs at the same time during the resize operation. If called simultaneously
+        // for multiple threads, it could cause OOMs, so lock down access to a single thread at a time.
+        if (!RESIZE_SEMAPHORE.tryAcquire())
+            return false;
 
         TranspositionTable newTT = new TranspositionTable(newTTBits);
 
@@ -71,6 +86,10 @@ public class TranspositionTable {
         ttBits = newTTBits;
         keys = newTT.keys;
         states = newTT.states;
+
+        RESIZE_SEMAPHORE.release();
+
+        return true;
     }
 
     // Slow since it loops over all entries. (Intended for post-game analysis only.)

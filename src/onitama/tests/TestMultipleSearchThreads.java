@@ -5,13 +5,14 @@ import java.util.Iterator;
 import java.util.List;
 
 import onitama.ai.Searcher;
+import onitama.ai.TranspositionTable;
 import onitama.model.Card;
 import onitama.model.CardState;
 import onitama.model.GameState;
 import onitama.model.Pair;
 
 public class TestMultipleSearchThreads {
-    static final int TT_BITS = 24; // log of nr of entries; 24 => 192 MB, 26 => 768 MB, 28 => 3 GB
+    static final long MAX_TT_MEMORY = 5L * 1024 * 1024 * 1024;
 
     static final int PLAYER_0 = 0;
     static final int PLAYER_1 = 1;
@@ -27,6 +28,10 @@ public class TestMultipleSearchThreads {
         new TestMultipleSearchThreads().testThreadForEachMove();
     }
 
+    static int getTTBits(int nrSearchThreads) {
+        return 63 - Long.numberOfLeadingZeros(MAX_TT_MEMORY / nrSearchThreads / TranspositionTable.BYTES_PER_ENTRY);
+    }
+
     void testThreadForEachMove() throws InterruptedException {
         int player = PLAYER_0;
 
@@ -37,13 +42,21 @@ public class TestMultipleSearchThreads {
         searcher.printBoard();
         List<Pair<String, GameState>> movesToTest = searcher.getAllMoves();
 
+        if (movesToTest.isEmpty()) {
+            System.out.println("No moves available!");
+            return;
+        }
+
+        int ttBits = getTTBits(movesToTest.size());
+        System.out.printf("%nAvailable moves = %d%nTT bits = %d (%.2f GB)%n", movesToTest.size(), ttBits, movesToTest.size() * (1L << ttBits) * TranspositionTable.BYTES_PER_ENTRY / 1024.0 / 1024.0 / 1024.0);
+
         System.out.println("-------------");
 
         long time = System.currentTimeMillis();
 
         List<SearchThread> searchThreads = new ArrayList<>();
         for (Pair<String, GameState> move : movesToTest) {
-            SearchThread t = new SearchThread(move.p, player, move.q.board, move.q.cardState);
+            SearchThread t = new SearchThread(move.p, ttBits, player, move.q.board, move.q.cardState);
             t.start();
             searchThreads.add(t);
         }
@@ -68,6 +81,16 @@ public class TestMultipleSearchThreads {
 
             threadStats.sort((a, b) -> a.p.compareTo(b.p));
             threadStats.forEach(stats -> println(stats.q));
+
+            // see if we should resize the TTs
+            int newTTBits = getTTBits(searchThreads.size());
+            if (newTTBits != ttBits) {
+                ttBits = newTTBits;
+                searchThreads.forEach(t -> t.searcher.resizeTTAsync(newTTBits));
+            }
+            System.out.printf("Search threads = %d  -  TT bits = %d (%.2f GB)%n", searchThreads.size(), ttBits, searchThreads.size() * (1L << ttBits) * TranspositionTable.BYTES_PER_ENTRY / 1024.0 / 1024.0 / 1024.0);
+
+
             println("---------------------");
         }
 
@@ -84,13 +107,13 @@ public class TestMultipleSearchThreads {
         private Searcher searcher;
         boolean threadFinished = false;
 
-        SearchThread(String initialMove, int player, String board, CardState cardState) {
+        SearchThread(String initialMove, int ttBits, int player, String board, CardState cardState) {
             this.initialMove = initialMove;
             this.player = player;
             this.board = board;
             this.cardState = cardState;
 
-            searcher = new Searcher(50, TT_BITS);
+            searcher = new Searcher(50, ttBits);
             searcher.setState(1 - player, board, cardState);
         }
 

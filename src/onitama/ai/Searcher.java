@@ -390,10 +390,9 @@ public class Searcher {
 
         int alphaOrig = alpha;
 
-        if (requestedTTResizeBits > 0) {
-            tt.resize(requestedTTResizeBits);
-            requestedTTResizeBits = 0;
-        }
+        if (requestedTTResizeBits > 0)
+            if (tt.resize(requestedTTResizeBits))
+                requestedTTResizeBits = 0;
 
         int seenState = tt.get(zobrist);
         stats.ttLookup(ply);
