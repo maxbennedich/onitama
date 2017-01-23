@@ -82,9 +82,10 @@ public class Searcher {
 
     final int nominalDepth;
 
-    public static boolean LOGGING = true;
+    public boolean log = true;
 
-    public Searcher(int nominalDepth, int ttBits) {
+    public Searcher(int nominalDepth, int ttBits, boolean log) {
+        this.log = log;
         this.nominalDepth = nominalDepth;
 
         tt = new TranspositionTable(ttBits);
@@ -153,8 +154,8 @@ public class Searcher {
         }
     }
 
-    public static void log(String str) {
-        if (LOGGING)
+    void log(String str) {
+        if (log)
             System.out.println(str);
     }
 
@@ -181,7 +182,7 @@ public class Searcher {
         pvScore = score;
         pvScoreDepth = currentDepthSearched;
 
-        if (!LOGGING) return;
+        if (!log) return;
 
         double time = timer.elapsedTimeMs() / 1000.0;
         if (!depthComplete && time < 1)
@@ -281,6 +282,11 @@ public class Searcher {
             }
         }
 
+        /** Adjust the timeout to let it run for the additional period provided. */
+        void setRelativeTimeout(long remainingTimeMs) {
+            maxTimeMs = elapsedTimeMs() + remainingTimeMs;
+        }
+
         long elapsedTimeMs() {
             return System.currentTimeMillis() - searchStartTime;
         }
@@ -323,7 +329,15 @@ public class Searcher {
         timer.resume();
     }
 
-    /** Issues a resize request to the transposition table. The resize will typically happen within a few milliseconds. */
+    /** Adjust the timeout for an ongoing search, to let it run for the additional period provided. */
+    public void setRelativeTimeout(long remainingTimeMs) {
+        timer.setRelativeTimeout(remainingTimeMs);
+    }
+
+    /**
+     * Issues a resize request to the transposition table and returns immediately. The resize will typically happen within a few milliseconds.
+     * This is a no-op if the new size is the same as the current size.
+     */
     public void resizeTTAsync(int ttBits) {
         requestedTTResizeBits = ttBits;
     }
@@ -679,21 +693,21 @@ public class Searcher {
         Output.printBoard(bitboardPlayer, bitboardKing);
     }
 
-    /** Convenience method to get a list of [move strings, game states] resulting from each valid move from the search start position. Not optimized for speed. */
-    public List<Pair<String, GameState>> getAllMoves() {
-        List<Pair<String, GameState>> moves = new ArrayList<>();
+    /** Convenience method to get a list of [moves, game states] resulting from each valid move from the search start position. Not optimized for speed. */
+    public List<Pair<Move, GameState>> getAllMoves() {
+        List<Pair<Move, GameState>> moves = new ArrayList<>();
 
         MoveGenerator mg = moveGenerator[0];
         mg.reset(TranspositionTable.NO_ENTRY, MoveType.ALL);
-        for (int move; (move = mg.getNextMoveIdx()) != -1; ) {
-            mg.move(move);
+        for (int mi; (mi = mg.getNextMoveIdx()) != -1; ) {
+            mg.move(mi);
 
-            int op = mg.oldPos[move], np = mg.newPos[move];
-            String moveString = String.format("%s %c%c%c%c", Card.CARDS[cardBits&15].name, 'a'+(op%N), '5'-(op/N), 'a'+(np%N), '5'-(np/N));
+            int op = mg.oldPos[mi], np = mg.newPos[mi];
+            Move move = new Move(Card.CARDS[cardBits&15], op%N, op/N, np%N, np/N);
 
-            moves.add(new Pair<>(moveString, new GameState(getCurrentBoard(), getCurrentCardState())));
+            moves.add(new Pair<>(move, new GameState(getCurrentBoard(), getCurrentCardState())));
 
-            mg.unmove(move);
+            mg.unmove(mi);
         }
 
         return moves;

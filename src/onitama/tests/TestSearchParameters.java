@@ -60,8 +60,6 @@ public class TestSearchParameters {
     private static String TEST_FILE_NAME = "testdata.txt";
 
     public static void main(String ... args) throws Exception {
-        Searcher.LOGGING = false;
-
         new TestSearchParameters().runTests(true);
     }
 
@@ -140,7 +138,7 @@ public class TestSearchParameters {
                 for (int c2 = c1+1; c2 < cardsToTest-2; ++c2) {
                     for (int c3 = c2+1; c3 < cardsToTest-1; ++c3) {
                         for (int c4 = c3+1; c4 < cardsToTest; ++c4) {
-                            Searcher searcher = new Searcher(4, 16);
+                            Searcher searcher = new Searcher(4, 16, false);
 
                             searcher.setState(PLAYER_0, BOARD_WIN_AT_13, new CardState(new Card[][] {{Card.CARDS[c0], Card.CARDS[c1]}, {Card.CARDS[c2], Card.CARDS[c3]}}, Card.CARDS[c4]));
 
@@ -157,7 +155,7 @@ public class TestSearchParameters {
 
     private void testDepth(boolean verify) {
         for (int depth = 1; depth <= 9; ++depth) {
-            Searcher searcher = new Searcher(depth, 20);
+            Searcher searcher = new Searcher(depth, 20, false);
 
             searcher.setState(PLAYER_0, BOARD_WIN_AT_13, new CardState(new Card[][] {{Card.Monkey, Card.Crane}, {Card.Tiger, Card.Crab}}, Card.Dragon));
 
@@ -170,7 +168,7 @@ public class TestSearchParameters {
 
     private void testTTSize(boolean verify) {
         for (int ttBits = 1; ttBits < 26; ++ttBits) {
-            Searcher searcher = new Searcher(6, ttBits);
+            Searcher searcher = new Searcher(6, ttBits, false);
 
             searcher.setState(PLAYER_0, BOARD_WIN_AT_13, new CardState(new Card[][] {{Card.Monkey, Card.Crane}, {Card.Tiger, Card.Crab}}, Card.Dragon));
 
@@ -218,7 +216,7 @@ public class TestSearchParameters {
             int[] scores = new int[2];
 
             for (int player = 0; player <= 1; ++player) {
-                Searcher searcher = new Searcher(4, 18);
+                Searcher searcher = new Searcher(4, 18, false);
 
                 if (player == 1)
                     board = changeBoardPlayer(board);

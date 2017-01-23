@@ -18,13 +18,17 @@ public class GameSimulator {
 
     /** @return Player that won the game, 0 for player 1, 1 for player 2, -1 for draw, and number of plies the game lasted. */
     public Pair<Integer, Integer> play() {
+        Move prevMove = null;
         int playerWon = -1, ply;
         for (ply = 0; (playerWon = gameState.playerWon()) == -1 && ply < MAX_PLIES_BEFORE_DRAW;) {
             Output.printGameState(gameState);
 
             int player = ply & 1;
-            Move move = players[player].getMove(ply / 2, gameState);
+            players[1-player].opponentToMove(gameState);
+            Move move = players[player].getMove(ply / 2, gameState, prevMove);
             gameState.move(player, move);
+
+            prevMove = move;
             ++ply;
         }
 

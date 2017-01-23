@@ -712,8 +712,6 @@ public class TestSearchDepthPerformance {
     static String[] BOARDS = {EMPTY_BOARD, BOARD_WIN_AT_13, BOARD_CORNERS};
 
     public static void main(String ... args) throws Exception {
-        Searcher.LOGGING = false;
-
         new TestSearchDepthPerformance().testDepth(10);
     }
 
@@ -724,7 +722,7 @@ public class TestSearchDepthPerformance {
         for (int depth = 1; depth <= 11; ++depth) {
             for (int board = 0; board < 3; ++board) {
                 for (int cards = 0; cards < 2; ++cards) {
-                    Searcher searcher = new Searcher(depth, 26);
+                    Searcher searcher = new Searcher(depth, 26, false);
 
                     searcher.setState(0, BOARDS[board], cards == 0 ?
                             new CardState(new Card[][] {{Card.Monkey, Card.Crane}, {Card.Tiger, Card.Crab}}, Card.Dragon) :

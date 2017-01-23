@@ -10,7 +10,6 @@ import java.util.Map.Entry;
 import java.util.Random;
 import java.util.concurrent.atomic.AtomicInteger;
 
-import onitama.ai.Searcher;
 import onitama.model.Card;
 import onitama.model.CardState;
 import onitama.model.GameState;
@@ -36,7 +35,6 @@ public class TestAIVsAI {
     static Player[] players = new Player[2];
 
     public static void main(String ... args) throws Exception {
-        Searcher.LOGGING = false;
         Output.outputLevel = OutputLevel.NONE;
 
 //        for (int d = 1; d <= 15; ++d) {
@@ -53,12 +51,12 @@ public class TestAIVsAI {
 //        }
 
         for (int i = 0; i < 2; ++i)
-            players[i] = new AIPlayer(i, new SearchParameters(20, 50, 30+i));
+            players[i] = new AIPlayer(i, new SearchParameters(16, 50, 30+i), false);
 
         runTest(100);
 
         for (int i = 0; i < 2; ++i)
-            players[i] = new AIPlayer(i, new SearchParameters(20, 50, 31-i));
+            players[i] = new AIPlayer(i, new SearchParameters(16, 50, 31-i), false);
 
         runTest(100);
     }
@@ -87,7 +85,7 @@ public class TestAIVsAI {
             }
         }
 
-        Collections.shuffle(combos, new Random(0));
+        Collections.shuffle(combos, new Random(1));
         final List<List<Integer>> combosToTest = new ArrayList<List<Integer>>();
         for (int h = 0; h < nrOfHandsToTest; ++h) {
             combosToTest.add(combos.get(h));

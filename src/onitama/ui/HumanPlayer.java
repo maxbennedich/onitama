@@ -9,7 +9,9 @@ public class HumanPlayer extends Player {
 
     @Override public String getName() { return "Player (" + (player+1) + ")"; }
 
-    @Override public Move getMove(int turn, GameState gameState) {
+    @Override public void opponentToMove(GameState gameState) { }
+
+    @Override public Move getMove(int turn, GameState gameState, Move opponentMove) {
         Move move = Input.queryMove(turn);
         System.out.println();
         return move;

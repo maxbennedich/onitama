@@ -9,6 +9,7 @@ import onitama.ai.TranspositionTable;
 import onitama.model.Card;
 import onitama.model.CardState;
 import onitama.model.GameState;
+import onitama.model.Move;
 import onitama.model.Pair;
 
 public class TestMultipleSearchThreads {
@@ -35,12 +36,10 @@ public class TestMultipleSearchThreads {
     void testThreadForEachMove() throws InterruptedException {
         int player = PLAYER_0;
 
-        Searcher.LOGGING = false;
-
-        Searcher searcher = new Searcher(50, 1);
+        Searcher searcher = new Searcher(50, 1, false);
         searcher.setState(player, BOARD_WIN_AT_13, new CardState(new Card[][] {{Card.Monkey, Card.Crane}, {Card.Tiger, Card.Crab}}, Card.Dragon));
         searcher.printBoard();
-        List<Pair<String, GameState>> movesToTest = searcher.getAllMoves();
+        List<Pair<Move, GameState>> movesToTest = searcher.getAllMoves();
 
         if (movesToTest.isEmpty()) {
             System.out.println("No moves available!");
@@ -55,7 +54,7 @@ public class TestMultipleSearchThreads {
         long time = System.currentTimeMillis();
 
         List<SearchThread> searchThreads = new ArrayList<>();
-        for (Pair<String, GameState> move : movesToTest) {
+        for (Pair<Move, GameState> move : movesToTest) {
             SearchThread t = new SearchThread(move.p, ttBits, player, move.q.board, move.q.cardState);
             t.start();
             searchThreads.add(t);
@@ -99,7 +98,7 @@ public class TestMultipleSearchThreads {
     }
 
     class SearchThread extends Thread {
-        final String initialMove;
+        final Move initialMove;
         final int player;
         final String board;
         final CardState cardState;
@@ -107,13 +106,13 @@ public class TestMultipleSearchThreads {
         private Searcher searcher;
         boolean threadFinished = false;
 
-        SearchThread(String initialMove, int ttBits, int player, String board, CardState cardState) {
+        SearchThread(Move initialMove, int ttBits, int player, String board, CardState cardState) {
             this.initialMove = initialMove;
             this.player = player;
             this.board = board;
             this.cardState = cardState;
 
-            searcher = new Searcher(50, ttBits);
+            searcher = new Searcher(50, ttBits, false);
             searcher.setState(1 - player, board, cardState);
         }
 

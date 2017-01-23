@@ -13,6 +13,8 @@ public abstract class Player {
 
     public abstract String getName();
 
-    public abstract Move getMove(int turn, GameState gameState);
+    public abstract void opponentToMove(GameState gameState);
+
+    public abstract Move getMove(int turn, GameState gameState, Move opponentMove);
 
 }

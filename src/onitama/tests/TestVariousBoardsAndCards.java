@@ -46,8 +46,6 @@ public class TestVariousBoardsAndCards {
     };
 
     public static void main(String ... args) throws Exception {
-        Searcher.LOGGING = false;
-
         new TestVariousBoardsAndCards().testBoard();
     }
 
@@ -57,7 +55,7 @@ public class TestVariousBoardsAndCards {
 
         for (int board = 0; board < BOARDS.length; ++board) {
             for (int cards = 0; cards < CARDS.length; ++cards) {
-                Searcher searcher = new Searcher(DEPTHS[board], 26);
+                Searcher searcher = new Searcher(DEPTHS[board], 26, false);
 
                 searcher.setState(0, BOARDS[board], CARDS[cards]);
 

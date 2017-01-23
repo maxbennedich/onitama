@@ -80,7 +80,7 @@ public class TestPlayByForum {
             "..#.x";
 
     public static void main(String ... args) throws Exception {
-        Searcher searcher = new Searcher(MAX_DEPTH, TT_BITS);
+        Searcher searcher = new Searcher(MAX_DEPTH, TT_BITS, true);
 
         // new cards:
 //        public static Card Tiger = new Card("Tiger", new int[] {0,-2});

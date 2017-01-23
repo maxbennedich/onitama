@@ -29,8 +29,6 @@ public class TestAllCards {
             "wwWww";
 
     public static void main(String ... args) throws Exception {
-        Searcher.LOGGING = false;
-
         long totalTime = System.currentTimeMillis();
 
         testAllCards();
@@ -71,7 +69,7 @@ public class TestAllCards {
                     List<Integer> combo = combos.get(idx);
                     int c0 = combo.get(0), c1 = combo.get(1), c2 = combo.get(2), c3 = combo.get(3), c4 = combo.get(4);
 
-                    Searcher searcher = new Searcher(MAX_DEPTH, TT_BITS);
+                    Searcher searcher = new Searcher(MAX_DEPTH, TT_BITS, false);
                     searcher.setState(PLAYER_0, EMPTY_BOARD, new CardState(new Card[][] {{Card.CARDS[c0], Card.CARDS[c1]}, {Card.CARDS[c2], Card.CARDS[c3]}}, Card.CARDS[c4]));
 
                     long time = System.currentTimeMillis();
