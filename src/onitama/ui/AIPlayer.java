@@ -147,23 +147,19 @@ public class AIPlayer extends Player {
         }
 
         public void ponder(GameState gameState) {
+            searchTasks = new ConcurrentHashMap<>();
+
             List<Pair<Move, GameState>> movesToSearch = getPossibleMoves(1 - player, gameState);
 
-            if (movesToSearch.isEmpty()) {
-                System.out.println("No moves available!");
-                return;
-            }
+            if (movesToSearch.isEmpty())
+                return; // no moves available
 
             int ttBits = getTTBits(movesToSearch.size());
             ttResizing = true;
-            System.out.printf("%nAvailable moves = %d%nTT bits = %d (%.2f GB)%n", movesToSearch.size(), ttBits, movesToSearch.size() * (1L << ttBits) * TranspositionTable.BYTES_PER_ENTRY / 1024.0 / 1024.0 / 1024.0);
 
             // ensure that all search tasks exist before any task is started
-            searchTasks = new ConcurrentHashMap<>();
             for (Pair<Move, GameState> move : movesToSearch)
                 searchTasks.put(move.p, new Pair<SearchTask, Future<Move>>(new SearchTask(move.p, ttBits, player, move.q), null));
-
-            Log("Started " + searchTasks.size() + " search tasks");
 
             for (Entry<Move, Pair<SearchTask, Future<Move>>> entry : searchTasks.entrySet())
                 entry.getValue().q = searcherExecutor.submit(() -> {
@@ -173,10 +169,13 @@ public class AIPlayer extends Player {
                 });
         }
 
+        /**
+         * Don't resize the TT immediately, wait for a few seconds to allow any other search tasks to complete. This avoids
+         * repeatedly resizing the TT if several tasks end at about the same time.
+         */
         void submitTTResize() {
             synchronized (TT_RESIZE_LOCK) {
                 if (ttResizing) {
-                    Log("Submitting TT resize task");
                     if (ttResizeFuture != null)
                         ttResizeFuture.cancel(false);
                     ttResizeFuture = ttResizeExecutor.schedule(() -> resizeTT(), 5, TimeUnit.SECONDS);
@@ -190,8 +189,6 @@ public class AIPlayer extends Player {
                 tasksAlive += p.p.done ? 0 : 1;
 
             int newTTBits = getTTBits(tasksAlive);
-
-            Log("Tasks alive = " + tasksAlive + ", resizing TT to " + newTTBits + " bits");
 
             for (Pair<SearchTask, Future<Move>> p : searchTasks.values())
                 p.p.resizeTT(newTTBits);
@@ -223,40 +220,26 @@ public class AIPlayer extends Player {
             }
         }
 
-        void Log(String s) {
-            System.out.println(System.currentTimeMillis() + " - p" + player + ", "+ s);
-        }
-
         public Move getBestMove(Move opponentMove, int remainingTimeMs) {
-            Log("Gettting best move for opponent move " + opponentMove + ", shutting down searchers");
-
             stopTTResizing();
-
-            Log("TT auto resizing stopped");
 
             Pair<SearchTask, Future<Move>> sm = searchTasks.remove(opponentMove);
 
             // request all threads except for the actual opponent move to stop, and then wait for them to shut down
             searchTasks.values().forEach(e -> e.p.stopSearch());
-            Log("Searcher threads stop requested");
             searchTasks.values().forEach(e -> getOrNull(e.q));
-            Log("Searcher threads stopped");
 
             if (sm == null) {
-                System.err.println("Could not find a searcher thread for move " + opponentMove);
+                System.err.println("Could not find a searcher thread for move " + opponentMove); // probably a bug if this happens
                 return null;
             }
 
             sm.p.timeout(remainingTimeMs);
-            Log("Searcher threads time out: "+remainingTimeMs);
 
             // resize TT to maximum size given a single worker thread
             sm.p.resizeTT(getTTBits(1));
-            Log("Searcher threads TT resized to " + getTTBits(1) + " bits");
 
-            Move m = getOrNull(sm.q);
-            Log("Got best move for opponent move " + opponentMove + ": " + m);
-            return m;
+            return getOrNull(sm.q);
         }
     }
 
