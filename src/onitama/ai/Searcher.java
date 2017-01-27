@@ -81,15 +81,17 @@ public class Searcher {
     static final int UPPER_BOUND = 2;
 
     final int nominalDepth;
+    final int initialTTBits;
 
     public boolean log = true;
 
-    public Searcher(int nominalDepth, int ttBits, boolean log) {
+    public Searcher(int nominalDepth, int ttBits, long maxTimeMs, boolean log) {
         this.log = log;
         this.nominalDepth = nominalDepth;
+        this.initialTTBits = ttBits;
 
-        tt = new TranspositionTable(ttBits);
-        stats = new Stats(tt);
+        stats = new Stats(null);
+        timer = new Timer(maxTimeMs);
     }
 
     int initialPlayer;
@@ -225,8 +227,12 @@ public class Searcher {
         long nextStatesEvaluated = TIMEOUT_CHECK_FREQUENCY_STATES;
 
         Timer(long maxTimeMs) {
-            searchStartTime = System.currentTimeMillis();
             this.maxTimeMs = maxTimeMs;
+            reset();
+        }
+
+        void reset() {
+            searchStartTime = System.currentTimeMillis();
         }
 
         boolean timeIsUp() {
@@ -292,8 +298,11 @@ public class Searcher {
         }
     }
 
-    public int start(long maxTimeMs) {
-        timer = new Timer(maxTimeMs);
+    public int start() {
+        tt = new TranspositionTable(initialTTBits);
+        stats.tt = tt;
+
+        timer.reset();
 
         log(" depth    time  score  best moves");
 
@@ -309,6 +318,11 @@ public class Searcher {
         }
 
         return score;
+    }
+
+    /** Releases the majority of memory held by this instance (such as the TT). Moves and non-TT related statistics is still available after this call. */
+    public void releaseMemory() {
+        tt = new TranspositionTable(1);
     }
 
     /**

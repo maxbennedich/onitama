@@ -32,6 +32,9 @@ public class GameSimulator {
             ++ply;
         }
 
+        for (int p = 0; p < 2; ++p)
+            players[p].gameOver();
+
         Output.printGameState(gameState);
         if (playerWon == -1)
             Output.printf("Game aborted after move %d (%d plies)!%n", ply/2, ply);

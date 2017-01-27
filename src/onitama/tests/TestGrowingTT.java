@@ -43,7 +43,7 @@ public class TestGrowingTT {
         volatile boolean threadFinished = false;
 
         SearchThread(int ttBits) {
-            searcher = new Searcher(50, ttBits, true);
+            searcher = new Searcher(50, ttBits, 1000000, true);
 //            searcher.setState(PLAYER_0, BOARD_GAME, new CardState(new Card[][] {{Card.Monkey, Card.Frog}, {Card.Eel, Card.Crab}}, Card.Dragon));
             searcher.setState(PLAYER_1, BOARD_GAME_MAX_9, new CardState(new Card[][] {{Card.Ox, Card.Crane}, {Card.Horse, Card.Tiger}}, Card.Eel));
         }
@@ -51,7 +51,7 @@ public class TestGrowingTT {
         @Override public void run() {
             long time = System.currentTimeMillis();
 
-            searcher.start(1000000);
+            searcher.start();
 
             time = System.currentTimeMillis() - time;
 

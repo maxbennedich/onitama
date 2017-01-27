@@ -23,7 +23,7 @@ public class Input {
             try {
                 @SuppressWarnings("resource") // don't close System.in
                 String response = new Scanner(System.in).next();
-                return response.equals("y") ? new AIPlayer(player, player == 0 ? new SearchParameters(26, 50, 30000) : new SearchParameters(26, 50, 30000), true) : new HumanPlayer(player);
+                return response.equals("y") ? new AIPlayer(player, new SearchParameters(26, 50, 10000), true) : new HumanPlayer(player);
             } catch (Exception e) {
                 System.out.println("Invalid input, try again");
             }

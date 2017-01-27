@@ -47,7 +47,7 @@ public class TestSingleSearch {
             ".w...";
 
     public static void main(String ... args) throws Exception {
-        Searcher searcher = new Searcher(MAX_DEPTH, TT_BITS, true);
+        Searcher searcher = new Searcher(MAX_DEPTH, TT_BITS, 20000001, true);
 
         searcher.setState(PLAYER_0, BOARD_WIN_AT_13, new CardState(new Card[][] {{Card.Monkey, Card.Crane}, {Card.Tiger, Card.Crab}}, Card.Dragon)); // use this for testing!
 //        searcher.setState(PLAYER_0, EMPTY_BOARD, new CardState(new Card[][] {{Card.Tiger, Card.Rabbit}, {Card.Rooster, Card.Cobra}}, Card.Elephant)); // fast
@@ -68,7 +68,7 @@ public class TestSingleSearch {
 
         long time = System.currentTimeMillis();
 
-        searcher.start(20000001);
+        searcher.start();
 //        searcher.start(Integer.MAX_VALUE);
 
         time = System.currentTimeMillis() - time;

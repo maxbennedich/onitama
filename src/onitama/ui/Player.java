@@ -11,6 +11,8 @@ public abstract class Player {
         this.player = player;
     }
 
+    public abstract void gameOver();
+
     public abstract String getName();
 
     public abstract void opponentToMove(GameState gameState);

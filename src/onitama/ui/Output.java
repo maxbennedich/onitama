@@ -74,7 +74,7 @@ public class Output {
     }
 
     public static void printGameState(GameState gameState) {
-        Searcher searcher = new Searcher(1, 0, false);
+        Searcher searcher = new Searcher(1, 0, 0, false);
         searcher.setState(0, gameState.board, gameState.cardState);
         searcher.printBoard();
         println();

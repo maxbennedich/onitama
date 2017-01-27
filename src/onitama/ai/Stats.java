@@ -22,7 +22,7 @@ public class Stats {
     private long[] playerWinCutoffs = {0, 0};
     private long alphaBetaCutoffs = 0;
 
-    private final TranspositionTable tt;
+    TranspositionTable tt;
 
     Stats(TranspositionTable tt) {
         this.tt = tt;
@@ -57,7 +57,9 @@ public class Stats {
         System.out.printf("Player win cutoffs: %d / %d%n", playerWinCutoffs[0], playerWinCutoffs[1]);
         System.out.printf("Alpha/beta cutoffs: %d%n", alphaBetaCutoffs);
 
-        System.out.printf("TT fill rate: %.2f %%%n", 100.0*tt.usedEntries()/tt.sizeEntries());
+        if (tt != null)
+            System.out.printf("TT fill rate: %.2f %%%n", 100.0*tt.usedEntries()/tt.sizeEntries());
+
         StringBuilder stats = new StringBuilder();
         long sumHits = 0, sumLookups = 0;
         for (int ply = 0; ply < Searcher.MAX_DEPTH && plyStats[ply].ttLookups > 0; ++ply) {

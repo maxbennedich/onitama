@@ -55,12 +55,12 @@ public class TestVariousBoardsAndCards {
 
         for (int board = 0; board < BOARDS.length; ++board) {
             for (int cards = 0; cards < CARDS.length; ++cards) {
-                Searcher searcher = new Searcher(DEPTHS[board], 26, false);
+                Searcher searcher = new Searcher(DEPTHS[board], 26, Integer.MAX_VALUE, false);
 
                 searcher.setState(0, BOARDS[board], CARDS[cards]);
 
                 long time = System.currentTimeMillis();
-                int score = searcher.start(Integer.MAX_VALUE);
+                int score = searcher.start();
                 time = System.currentTimeMillis() - time;
 
                 long states = searcher.stats.getStatesEvaluated();

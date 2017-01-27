@@ -7,6 +7,8 @@ public class HumanPlayer extends Player {
 
     HumanPlayer(int player) { super(player); }
 
+    @Override public void gameOver() { }
+
     @Override public String getName() { return "Player (" + (player+1) + ")"; }
 
     @Override public void opponentToMove(GameState gameState) { }

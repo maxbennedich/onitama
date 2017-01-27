@@ -80,7 +80,7 @@ public class TestPlayByForum {
             "..#.x";
 
     public static void main(String ... args) throws Exception {
-        Searcher searcher = new Searcher(MAX_DEPTH, TT_BITS, true);
+        Searcher searcher = new Searcher(MAX_DEPTH, TT_BITS, Integer.MAX_VALUE, true);
 
         // new cards:
 //        public static Card Tiger = new Card("Tiger", new int[] {0,-2});
@@ -116,7 +116,7 @@ public class TestPlayByForum {
 
         long time = System.currentTimeMillis();
 
-        searcher.start(Integer.MAX_VALUE);
+        searcher.start();
 
         time = System.currentTimeMillis() - time;
 

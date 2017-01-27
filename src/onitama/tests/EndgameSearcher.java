@@ -97,12 +97,12 @@ public class EndgameSearcher {
                     if (idx >= allBoards.size()) break;
                     String boardStr = allBoards.get(idx);
 
-                    Searcher searcher = new Searcher(MAX_DEPTH, TT_BITS, false);
+                    Searcher searcher = new Searcher(MAX_DEPTH, TT_BITS, MAX_TIME_MS, false);
                     searcher.setState(PLAYER_0, boardStr, cards);
 
                     long time = System.currentTimeMillis();
 
-                    int score = searcher.start(MAX_TIME_MS);
+                    int score = searcher.start();
                     --searcher.currentDepthSearched;
                     String move = searcher.getMoveString(true, score);
 
@@ -165,12 +165,12 @@ public class EndgameSearcher {
                     List<Integer> combo = combos.get(idx);
                     int c0 = combo.get(0), c1 = combo.get(1), c2 = combo.get(2), c3 = combo.get(3), c4 = combo.get(4);
 
-                    Searcher searcher = new Searcher(MAX_DEPTH, TT_BITS, false);
+                    Searcher searcher = new Searcher(MAX_DEPTH, TT_BITS, Integer.MAX_VALUE, false);
                     searcher.setState(PLAYER_0, BOARD, new CardState(new Card[][] {{Card.CARDS[c0], Card.CARDS[c1]}, {Card.CARDS[c2], Card.CARDS[c3]}}, Card.CARDS[c4]));
 
                     long time = System.currentTimeMillis();
 
-                    int score = searcher.start(Integer.MAX_VALUE);
+                    int score = searcher.start();
                     --searcher.currentDepthSearched;
                     String move = searcher.getMoveString(true, score);
 

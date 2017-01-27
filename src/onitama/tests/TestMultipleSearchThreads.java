@@ -36,7 +36,7 @@ public class TestMultipleSearchThreads {
     void testThreadForEachMove() throws InterruptedException {
         int player = PLAYER_0;
 
-        Searcher searcher = new Searcher(50, 1, false);
+        Searcher searcher = new Searcher(50, 1, 0, false);
         searcher.setState(player, BOARD_WIN_AT_13, new CardState(new Card[][] {{Card.Monkey, Card.Crane}, {Card.Tiger, Card.Crab}}, Card.Dragon));
         searcher.printBoard();
         List<Pair<Move, GameState>> movesToTest = searcher.getAllMoves();
@@ -112,12 +112,12 @@ public class TestMultipleSearchThreads {
             this.board = board;
             this.cardState = cardState;
 
-            searcher = new Searcher(50, ttBits, false);
+            searcher = new Searcher(50, ttBits, 1000000, false);
             searcher.setState(1 - player, board, cardState);
         }
 
         @Override public void run() {
-            searcher.start(1000000);
+            searcher.start();
 
             threadFinished = true;
         }
