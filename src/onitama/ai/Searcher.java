@@ -64,7 +64,7 @@ import onitama.ui.Output;
  *   dynamic TT resizing to make efficient use of the available memory.
  *
  * Future ideas:
- * - Pondering
+ * - Compress TT better
  */
 public class Searcher {
     static final int NO_SCORE = 1000; // some score that will never occur
@@ -99,11 +99,7 @@ public class Searcher {
 
     int initialPlayer;
 
-    // game state
-    int[] bitboardPlayer = { 0, 0 };
-    int[] bitboardKing = { 0, 0 };
-    int cardBits;
-    long zobrist = 0;
+    final SearchState state = new SearchState();
 
     /** Triangular table of principal variations (best moves) for each ply. */
     int[] pvTable = new int[MAX_DEPTH * (MAX_DEPTH + 1) / 2];
@@ -129,39 +125,13 @@ public class Searcher {
     }
 
     public void setState(int playerTurn, String board, CardState cardState) {
-        initPlayer(playerTurn);
-        initBoard(board);
-        initCards(cardState);
-    }
+        state.initPlayer(playerTurn);
+        state.initBoard(board);
+        state.initCards(cardState);
 
-    void initPlayer(int playerTurn) {
         initialPlayer = playerTurn;
-        if (initialPlayer == 1)
-            zobrist ^= Zobrist.SHIFT_PLAYER; // to make hash values deterministic regardless of initial player
-
         for (int d = 0, player = initialPlayer; d < MAX_DEPTH; ++d, player = 1 - player)
             moveGenerator[d] = new MoveGenerator(d, player);
-    }
-
-    void initCards(CardState cardState) {
-        for (int p = 0; p < 2; ++p)
-            for (int c = 0; c < GameDefinition.CARDS_PER_PLAYER; ++c)
-                zobrist ^= Zobrist.CARD[p][cardState.playerCards[p][c].id];
-
-        cardBits = cardState.nextCard.id + (cardState.playerCards[0][0].id << 4) + (cardState.playerCards[0][1].id << 8) + (cardState.playerCards[1][0].id << 12) + (cardState.playerCards[1][1].id << 16);
-    }
-
-    void initBoard(String board) {
-        for (int y = 0, bit = 1; y < N; ++y) {
-            for (int x = 0; x < N; ++x, bit *= 2) {
-                if (board.charAt(y*5+x) != '.') {
-                    if (board.charAt(y*5+x) == 'w') { bitboardPlayer[0] |= bit; zobrist ^= Zobrist.PIECE[0][0][y*5+x]; }
-                    else if (board.charAt(y*5+x) == 'b') { bitboardPlayer[1] |= bit; zobrist ^= Zobrist.PIECE[1][0][y*5+x]; }
-                    else if (board.charAt(y*5+x) == 'W') { bitboardPlayer[0] |= bit; bitboardKing[0] |= bit; zobrist ^= Zobrist.PIECE[0][1][y*5+x]; }
-                    else if (board.charAt(y*5+x) == 'B') { bitboardPlayer[1] |= bit; bitboardKing[1] |= bit; zobrist ^= Zobrist.PIECE[1][1][y*5+x]; }
-                }
-            }
-        }
     }
 
     public int start() {
@@ -277,13 +247,14 @@ public class Searcher {
     int quiesce(int player, int ply, int qd, int pvIdx, int alpha, int beta) {
         pvLength[ply] = 0; // default to no pv
 
-        if (won(1-player))
+        if (state.won(1-player))
             return -WIN_SCORE;
 
         stats.depthSeen(ply);
 
         // use current evaluation as a lower bound for the score (a higher score is likely possible by making a move)
-        int standPat = score(player);
+        stats.leafEvaluated();
+        int standPat = state.score(player);
         if (standPat > alpha)
             alpha = standPat;
         if (alpha >= beta)
@@ -308,7 +279,7 @@ public class Searcher {
             if (score > alpha) {
                 alpha = score;
 
-                pvTable[pvIdx] = ((cardBits >> 4 + player * 8 + mg.cardUsed[move] * 4) & 15) + (mg.oldPos[move] << 4) + (mg.newPos[move] << 9);
+                pvTable[pvIdx] = ((state.cardBits >> 4 + player * 8 + mg.cardUsed[move] * 4) & 15) + (mg.oldPos[move] << 4) + (mg.newPos[move] << 9);
                 System.arraycopy(pvTable, pvNextIdx, pvTable, pvIdx + 1, pvLength[ply + 1]);
                 pvLength[ply] = pvLength[ply + 1] + 1;
 
@@ -323,7 +294,7 @@ public class Searcher {
     int negamax(int player, int depth, int ply, int pvIdx, int alpha, int beta) {
         pvLength[ply] = 0; // default to no pv
 
-        if (won(1-player))
+        if (state.won(1-player))
             return -WIN_SCORE;
 
         // depth extensions/reductions would go here
@@ -339,7 +310,7 @@ public class Searcher {
         if (requestedTTResizeBits > 0 && tt.resize(requestedTTResizeBits))
             requestedTTResizeBits = 0;
 
-        int seenState = tt.get(zobrist);
+        int seenState = tt.get(state.zobrist);
         stats.ttLookup(ply);
 
         if (seenState != TranspositionTable.NO_ENTRY) {
@@ -397,7 +368,7 @@ public class Searcher {
                     alpha = bestScore;
 
                 // update PV so that we can report the best score and the series that leads there
-                pvTable[pvIdx] = ((cardBits >> 4 + player * 8 + mg.cardUsed[move] * 4) & 15) + (mg.oldPos[move] << 4) + (mg.newPos[move] << 9);
+                pvTable[pvIdx] = ((state.cardBits >> 4 + player * 8 + mg.cardUsed[move] * 4) & 15) + (mg.oldPos[move] << 4) + (mg.newPos[move] << 9);
                 System.arraycopy(pvTable, pvNextIdx, pvTable, pvIdx + 1, pvLength[ply + 1]);
                 pvLength[ply] = pvLength[ply + 1] + 1;
 
@@ -417,7 +388,7 @@ public class Searcher {
                 if (alpha >= beta) {
                     // update history table, indicating that this is a good move (since it's causing a cut-off)
                     // don't include wins or captures in the history, since that is already handled by the move ordering
-                    boolean capturedPiece = (bitboardPlayer[1-player] & (1 << mg.newPos[move])) != 0;
+                    boolean capturedPiece = (state.bitboardPlayer[1-player] & (1 << mg.newPos[move])) != 0;
                     if (!capturedPiece)
                         historyTable[player][mg.oldPos[move]][mg.newPos[move]] += depth * depth; // give less weight to moves near the leaves, or they will dominate the table
 
@@ -427,7 +398,7 @@ public class Searcher {
         }
 
         int boundType = bestScore <= alphaOrig ? UPPER_BOUND : (bestScore >= beta ? LOWER_BOUND : EXACT_SCORE);
-        tt.put(zobrist, boundType + (depth << 2) + ((bestScore & 1023) << 8) + (bestMoveHash << 18));
+        tt.put(state.zobrist, boundType + (depth << 2) + ((bestScore & 1023) << 8) + (bestMoveHash << 18));
 
         return bestScore;
     }
@@ -435,9 +406,7 @@ public class Searcher {
     private static final int INVALID_MOVE_HASH = NN;
 
     int getMoveHash(int player, MoveGenerator mg, int move) {
-        int card0 = ((cardBits >> 4 + player * 8) & 15);
-        int card1 = ((cardBits >> 4 + player * 8 + 4) & 15);
-        int cardUsed = card0 < card1 ? mg.cardUsed[move] : 1 - mg.cardUsed[move]; // 0 = lower card id, 1 = higher (card order may differ)
+        int cardUsed = state.firstCardLower(player) ? mg.cardUsed[move] : 1 - mg.cardUsed[move]; // 0 = lower card id, 1 = higher (card order may differ)
         return mg.oldPos[move] + (cardUsed << 5) + (mg.newPos[move] << 6);
     }
 
@@ -469,6 +438,8 @@ public class Searcher {
         // 4. history table heuristic
         final long WIN = Long.MAX_VALUE;
         final long CAPTURE = Long.MAX_VALUE - 1;
+
+        final SearchState prevState = new SearchState();
 
         MoveGenerator(int ply, int player) {
             this.ply = ply;
@@ -511,9 +482,7 @@ public class Searcher {
                 stats.bestMoveHit(ply);
                 oldPos[0] = bestMoveOldPos = (seenState >> 18) & 31;
                 int seenCard = (seenState >> 23) & 1;
-                int card0 = ((cardBits >> 4 + player * 8) & 15);
-                int card1 = ((cardBits >> 4 + player * 8 + 4) & 15);
-                cardUsed[0] = bestMoveCard = card0 < card1 ? seenCard : 1 - seenCard; // 0 = lower card id, 1 = higher (card order may differ)
+                cardUsed[0] = bestMoveCard = state.firstCardLower(player) ? seenCard : 1 - seenCard; // 0 = lower card id, 1 = higher (card order may differ)
                 newPos[0] = bestMoveNewPos = (seenState >> 24) & 31;
                 generatedBestMove = true;
             } else {
@@ -527,18 +496,18 @@ public class Searcher {
             totalMoves = 0;
             movesReturned = 0;
 
-            for (int playerBitmask = bitboardPlayer[player], p = -1, pz = -1; ; ) {
+            for (int playerBitmask = state.bitboardPlayer[player], p = -1, pz = -1; ; ) {
                 playerBitmask >>= (pz+1);
                 if ((pz = Integer.numberOfTrailingZeros(playerBitmask)) == 32) break;
                 p += pz + 1;
 
                 for (int card = 0; card < GameDefinition.CARDS_PER_PLAYER; ++card) {
-                    int moveBitmask = Card.CARDS[((cardBits >> 4 + player * 8 + card * 4) & 15)].moveBitmask[player][p];
+                    int moveBitmask = Card.CARDS[((state.cardBits >> 4 + player * 8 + card * 4) & 15)].moveBitmask[player][p];
 
                     if (moveType == MoveType.CAPTURE_OR_WIN)
-                        moveBitmask &= (bitboardPlayer[1-player] | GameDefinition.WIN_BITMASK[player]); // only captures and wins
+                        moveBitmask &= (state.bitboardPlayer[1-player] | GameDefinition.WIN_BITMASK[player]); // only captures and wins
 
-                    moveBitmask &= ~bitboardPlayer[player]; // exclude moves onto oneself
+                    moveBitmask &= ~state.bitboardPlayer[player]; // exclude moves onto oneself
 
                     for (int np = -1, npz = -1; ; ) {
                         moveBitmask >>= (npz+1);
@@ -553,9 +522,9 @@ public class Searcher {
                         newPos[totalMoves] = np;
 
                         int newPosMask = 1 << np;
-                        if ((bitboardKing[1-player] & newPosMask) != 0) moveScore[totalMoves] = WIN; // captured king
-                        else if ((bitboardKing[player] == (1 << p) && np == GameDefinition.WIN_POSITION[player])) moveScore[totalMoves] = WIN; // moved king to winning position
-                        else if ((bitboardPlayer[1-player] & newPosMask) != 0) moveScore[totalMoves] = CAPTURE; // captured piece
+                        if ((state.bitboardKing[1-player] & newPosMask) != 0) moveScore[totalMoves] = WIN; // captured king
+                        else if ((state.bitboardKing[player] == (1 << p) && np == GameDefinition.WIN_POSITION[player])) moveScore[totalMoves] = WIN; // moved king to winning position
+                        else if ((state.bitboardPlayer[1-player] & newPosMask) != 0) moveScore[totalMoves] = CAPTURE; // captured piece
                         else moveScore[totalMoves] = historyTable[player][p][np];
 
                         ++totalMoves;
@@ -564,72 +533,18 @@ public class Searcher {
             }
         }
 
-        // ----------------
-
-        long prevZobrist;
-        int prevCardBits;
-        int prevBitboardP0, prevBitboardP1;
-        int prevBitboardK0, prevBitboardK1;
-
         void move(int m) {
-            prevZobrist = zobrist;
-            prevBitboardP0 = bitboardPlayer[0];
-            prevBitboardP1 = bitboardPlayer[1];
-            prevBitboardK0 = bitboardKing[0];
-            prevBitboardK1 = bitboardKing[1];
-
-            int oldPosMask = 1 << oldPos[m];
-            int newPosMask = 1 << newPos[m];
-
-            if ((bitboardPlayer[1-player] & newPosMask) != 0) {
-                // opponent player piece captured
-                bitboardPlayer[1-player] &= ~newPosMask; // remove opponent piece
-
-                int capturedPiece = (bitboardKing[1-player] & newPosMask) != 0 ? KING : PAWN;
-                if (capturedPiece == KING)
-                    bitboardKing[1-player] &= ~newPosMask; // remove opponent king
-
-                zobrist ^= Zobrist.PIECE[1 - player][capturedPiece][newPos[m]];
-            }
-
-            bitboardPlayer[player] &= ~oldPosMask; // remove piece from current position
-            bitboardPlayer[player] |= newPosMask; // add piece to new position
-
-            int movedPiece = bitboardKing[player] == oldPosMask ? KING : PAWN;
-            if (movedPiece == KING) {
-                bitboardKing[player] &= ~oldPosMask; // remove king from current position
-                bitboardKing[player] |= newPosMask; // add king to new position
-            }
-
-            zobrist ^= Zobrist.PIECE[player][movedPiece][oldPos[m]];
-            zobrist ^= Zobrist.PIECE[player][movedPiece][newPos[m]];
-
-            int cardUsedPos = 4 + player * 8 + cardUsed[m] * 4;
-            int cardUsedId = ((cardBits >> cardUsedPos) & 15);
-            int nextCardId = cardBits & 15;
-            zobrist ^= Zobrist.CARD[player][cardUsedId];
-            zobrist ^= Zobrist.CARD[player][nextCardId];
-
-            zobrist ^= Zobrist.SHIFT_PLAYER;
-
-            prevCardBits = cardBits;
-            cardBits = cardBits & ~(15 + (15 << cardUsedPos));
-            cardBits |= cardUsedId + (nextCardId << cardUsedPos);
+            prevState.copyFrom(state);
+            state.move(player, oldPos[m], newPos[m], cardUsed[m]);
         }
 
         void unmove() {
-            cardBits = prevCardBits;
-            bitboardPlayer[0] = prevBitboardP0;
-            bitboardPlayer[1] = prevBitboardP1;
-            bitboardKing[0] = prevBitboardK0;
-            bitboardKing[1] = prevBitboardK1;
-
-            zobrist = prevZobrist;
+            state.copyFrom(prevState);
         }
     }
 
     public void printBoard() {
-        Output.printBoard(bitboardPlayer, bitboardKing);
+        Output.printBoard(state.bitboardPlayer, state.bitboardKing);
     }
 
     /** Convenience method to get a list of [moves, game states] resulting from each valid move from the search start position. Not optimized for speed. */
@@ -642,45 +557,13 @@ public class Searcher {
             mg.move(mi);
 
             int op = mg.oldPos[mi], np = mg.newPos[mi];
-            Move move = new Move(Card.CARDS[cardBits&15], op%N, op/N, np%N, np/N);
+            Move move = new Move(Card.CARDS[state.cardBits&15], op%N, op/N, np%N, np/N);
 
-            moves.add(new Pair<>(move, AIUtils.getGameState(bitboardPlayer, bitboardKing, cardBits)));
+            moves.add(new Pair<>(move, AIUtils.getGameState(state)));
 
             mg.unmove();
         }
 
         return moves;
-    }
-
-    /** @return Whether the current board is a win for the given player. */
-    boolean won(int player) {
-        return bitboardKing[1-player] == 0 || bitboardKing[player] == GameDefinition.WIN_BITMASK[player];
-    }
-
-    /** Score for each position on the board. (Larger score is better.) */
-    private static final int SCORE_1 = 0b01010_10001_00000_10001_01010;
-    private static final int SCORE_2 = 0b00100_01010_10001_01010_00100;
-    private static final int SCORE_3 = 0b00000_00100_01010_00100_00000;
-    private static final int SCORE_4 = 0b00000_00000_00100_00000_00000;
-
-    int score(int playerToEvaluate) {
-        stats.leafEvaluated();
-
-        int pieceScore0 =
-                Integer.bitCount(bitboardPlayer[0] & SCORE_1) +
-                2 * Integer.bitCount(bitboardPlayer[0] & SCORE_2) +
-                3 * Integer.bitCount(bitboardPlayer[0] & SCORE_3) +
-                4 * Integer.bitCount(bitboardPlayer[0] & SCORE_4);
-
-        int pieceScore1 =
-                Integer.bitCount(bitboardPlayer[1] & SCORE_1) +
-                2 * Integer.bitCount(bitboardPlayer[1] & SCORE_2) +
-                3 * Integer.bitCount(bitboardPlayer[1] & SCORE_3) +
-                4 * Integer.bitCount(bitboardPlayer[1] & SCORE_4);
-
-        int materialDifference = Integer.bitCount(bitboardPlayer[0]) - Integer.bitCount(bitboardPlayer[1]);
-        int score = materialDifference*100 + (pieceScore0 - pieceScore1)*1;
-
-        return playerToEvaluate == 0 ? score : -score;
     }
 }

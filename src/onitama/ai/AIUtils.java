@@ -27,8 +27,8 @@ public class AIUtils {
         return searcher;
     }
 
-    public static GameState getGameState(int[] bitboardPlayer, int[] bitboardKing, int cardBits) {
-        return new GameState(getBoard(bitboardPlayer, bitboardKing), getCardState(cardBits));
+    public static GameState getGameState(SearchState state) {
+        return new GameState(getBoard(state.bitboardPlayer, state.bitboardKing), getCardState(state.cardBits));
     }
 
     private static char[] BOARD_MARKERS = new char[] {' ', 'w', 'b', 'W', 'B'};
