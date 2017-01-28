@@ -12,7 +12,7 @@ import onitama.model.Pair;
 import onitama.ui.Output;
 
 /**
- * Improvements:
+ * Features implemented/tried:
  * - Transposition table. By itself this improved search times by around 25%, using a replace-always scheme. Moreover, it makes it possible to store the
  *   best move for each node. Changing this to a depth-preferred scheme gave much better results when the TT was filling up (>25% full), but sometimes
  *   resulted in worse results. Using a two-tier table, storing one depth-preferred entry and one most recent entry, gave the best result. Huge improvements
@@ -58,6 +58,10 @@ import onitama.ui.Output;
  *   quite well (at least with a two-tiered TT); a search with a small TT that is later adjusted to a larger size, does not seem to suffer in the
  *   long run from initially having started out small. One use case for this feature is to start many searches simultaneously with small TTs, and
  *   increasing the size gradually as some searches finish and there are fewer remaining.
+ * - Pondering. Most literature recommends a single search pondering just the expected opponent move, assuming that this move will actually be played
+ *   by the opponent 50+% of the times ("ponder hit rate"). For this project, I have a assumed a much lower ponder hit rate, so instead a separate
+ *   search is started for every possible opponent move, and once the opponent moves, all irrelevant search threads are killed. This feature uses
+ *   dynamic TT resizing to make efficient use of the available memory.
  *
  * Future ideas:
  * - Pondering
@@ -299,7 +303,7 @@ public class Searcher {
             if (timer.timeIsUp(stats.getStatesEvaluated())) return TIME_OUT_SCORE;
 
             // undo move
-            mg.unmove(move);
+            mg.unmove();
 
             if (score > alpha) {
                 alpha = score;
@@ -385,7 +389,7 @@ public class Searcher {
             }
             if (timer.timeIsUp(stats.getStatesEvaluated())) return TIME_OUT_SCORE;
 
-            mg.unmove(move);
+            mg.unmove();
 
             if (score > bestScore) {
                 bestScore = score;
@@ -561,6 +565,7 @@ public class Searcher {
         }
 
         // ----------------
+
         long prevZobrist;
         int prevCardBits;
         int prevBitboardP0, prevBitboardP1;
@@ -612,7 +617,7 @@ public class Searcher {
             cardBits |= cardUsedId + (nextCardId << cardUsedPos);
         }
 
-        void unmove(int m) {
+        void unmove() {
             cardBits = prevCardBits;
             bitboardPlayer[0] = prevBitboardP0;
             bitboardPlayer[1] = prevBitboardP1;
@@ -639,31 +644,12 @@ public class Searcher {
             int op = mg.oldPos[mi], np = mg.newPos[mi];
             Move move = new Move(Card.CARDS[cardBits&15], op%N, op/N, np%N, np/N);
 
-            moves.add(new Pair<>(move, new GameState(getCurrentBoard(), getCurrentCardState())));
+            moves.add(new Pair<>(move, AIUtils.getGameState(bitboardPlayer, bitboardKing, cardBits)));
 
-            mg.unmove(mi);
+            mg.unmove();
         }
 
         return moves;
-    }
-
-    private static char[] BOARD_MARKERS = new char[] {' ', 'w', 'b', 'W', 'B'};
-
-    private String getCurrentBoard() {
-        char[] board = new char[NN];
-        for (int p = 0, bit = 1; p < NN; ++p, bit *= 2) {
-            int c = 0;
-            if ((bitboardKing[0] & bit) != 0) c = 3;
-            else if ((bitboardKing[1] & bit) != 0) c = 4;
-            else if ((bitboardPlayer[0] & bit) != 0) c = 1;
-            else if ((bitboardPlayer[1] & bit) != 0) c = 2;
-            board[p] = BOARD_MARKERS[c];
-        }
-        return new String(board);
-    }
-
-    private CardState getCurrentCardState() {
-        return new CardState(new Card[][] {{Card.CARDS[(cardBits>>4)&15], Card.CARDS[(cardBits>>8)&15]}, {Card.CARDS[(cardBits>>12)&15], Card.CARDS[(cardBits>>16)&15]}}, Card.CARDS[cardBits&15]);
     }
 
     /** @return Whether the current board is a win for the given player. */
