@@ -19,8 +19,6 @@ public class Stats {
     private long statesEvaluated = 0;
     private long quiescenceStatesEvaluated = 0;
     private long leavesEvaluated = 0;
-    private long[] playerWinCutoffs = {0, 0};
-    private long alphaBetaCutoffs = 0;
 
     TranspositionTable tt;
 
@@ -38,8 +36,6 @@ public class Stats {
     void stateEvaluated(int ply) { ++statesEvaluated; ++plyStats[ply].statesEvaluated; }
     void quiescenceStateEvaluated(int ply) { ++quiescenceStatesEvaluated; ++plyStats[ply].quiescenceStatesEvaluated; }
     void leafEvaluated() { ++ leavesEvaluated; }
-    void alphaBetaCutoff() { ++ alphaBetaCutoffs; }
-    void playerWinCutoff(int player) { ++playerWinCutoffs[player]; }
 
     void ttLookup(int ply) { ++plyStats[ply].ttLookups; }
     void ttHit(int ply) { ++plyStats[ply].ttHits; }
@@ -54,8 +50,6 @@ public class Stats {
         System.out.printf("States evaluated: %d%n", statesEvaluated);
         System.out.printf("Quiescence states evaluated: %d%n", quiescenceStatesEvaluated);
         System.out.printf("Leaves evaluated: %d%n", leavesEvaluated);
-        System.out.printf("Player win cutoffs: %d / %d%n", playerWinCutoffs[0], playerWinCutoffs[1]);
-        System.out.printf("Alpha/beta cutoffs: %d%n", alphaBetaCutoffs);
 
         if (tt != null)
             System.out.printf("TT fill rate: %.2f %%%n", 100.0*tt.usedEntries()/tt.sizeEntries());

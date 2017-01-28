@@ -123,8 +123,8 @@ public class TestMultipleSearchThreads {
         }
 
         Pair<Integer, String> getStats() {
-            int depth = searcher.getPVScoreDepth();
-            int score = searcher.getPVScore();
+            int depth = searcher.getScoreSearchDepth();
+            int score = searcher.getScore();
             long states = searcher.stats.getStatesEvaluated();
             long qStates = searcher.stats.getQuiescenceStatesEvaluated();
             return new Pair<>(score, String.format("%s: %d (%d plies, %d states)", initialMove, score, depth, states + qStates));

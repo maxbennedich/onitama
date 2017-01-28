@@ -69,7 +69,7 @@ public class Searcher {
     public static final int WIN_SCORE = 500;
 
     public static final int N = 5; // board dimension
-    public static final int NN = N*N; // board dimension
+    public static final int NN = N*N; // board dimension^2
 
     static final int PAWN = 0;
     static final int KING = 1;
@@ -80,22 +80,21 @@ public class Searcher {
     static final int LOWER_BOUND = 1;
     static final int UPPER_BOUND = 2;
 
+    public TranspositionTable tt;
+
+    /** If this is not 0, the transposition table will be resized to this bit size at the earliest opportunity. */
+    private volatile int requestedTTResizeBits = 0;
+
+    public Stats stats;
+
     final int nominalDepth;
     final int initialTTBits;
 
     public boolean log = true;
 
-    public Searcher(int nominalDepth, int ttBits, long maxTimeMs, boolean log) {
-        this.log = log;
-        this.nominalDepth = nominalDepth;
-        this.initialTTBits = ttBits;
-
-        stats = new Stats(null);
-        timer = new Timer(maxTimeMs);
-    }
-
     int initialPlayer;
 
+    // game state
     int[] bitboardPlayer = { 0, 0 };
     int[] bitboardKing = { 0, 0 };
     int cardBits;
@@ -108,17 +107,21 @@ public class Searcher {
     int pvScore = NO_SCORE;
     int pvScoreDepth = -1;
 
+    /** History heuristic table, used for move ordering. */
     public long[][][] historyTable = new long[2][NN][NN];
 
-    public Stats stats;
-
-    public TranspositionTable tt;
-
-    /** If this is not 0, the transposition table will be resized to this bit size at the earliest opportunity. */
-    private volatile int requestedTTResizeBits = 0;
-
     MoveGenerator[] moveGenerator = new MoveGenerator[MAX_DEPTH];
+
     public int currentDepthSearched;
+
+    public Searcher(int nominalDepth, int ttBits, long maxTimeMs, boolean log) {
+        this.log = log;
+        this.nominalDepth = nominalDepth;
+        this.initialTTBits = ttBits;
+
+        stats = new Stats(null);
+        timer = new Timer(maxTimeMs);
+    }
 
     public void setState(int playerTurn, String board, CardState cardState) {
         initPlayer(playerTurn);
@@ -156,11 +159,6 @@ public class Searcher {
         }
     }
 
-    void log(String str) {
-        if (log)
-            System.out.println(str);
-    }
-
     Move getPVMove(int depth) {
         int cardId = pvTable[depth] & 15;
         int p = (pvTable[depth] >> 4) & 31;
@@ -168,22 +166,27 @@ public class Searcher {
         return new Move(Card.CARDS[cardId], p%N, p/N, n%N, n/N);
     }
 
+    /** The currently best scoring move (the first move of the principal variation). */
     public Move getBestMove() {
         return getPVMove(0);
     }
 
-    public int getPVScore() {
+    /** The currently best estimated score for the game being searched (the result of playing the principal variation). */
+    public int getScore() {
         return pvScore;
     }
 
-    public int getPVScoreDepth() {
+    /** The nominal search depth used to calculate the {@link #getScore}. */
+    public int getScoreSearchDepth() {
         return pvScoreDepth;
     }
 
-    void logMove(boolean depthComplete, int score) {
-        pvScore = score;
-        pvScoreDepth = currentDepthSearched;
+    void log(String str) {
+        if (log)
+            System.out.println(str);
+    }
 
+    void logMove(boolean depthComplete, int score) {
         if (!log) return;
 
         double time = timer.elapsedTimeMs() / 1000.0;
@@ -418,9 +421,8 @@ public class Searcher {
 
         int alphaOrig = alpha;
 
-        if (requestedTTResizeBits > 0)
-            if (tt.resize(requestedTTResizeBits))
-                requestedTTResizeBits = 0;
+        if (requestedTTResizeBits > 0 && tt.resize(requestedTTResizeBits))
+            requestedTTResizeBits = 0;
 
         int seenState = tt.get(zobrist);
         stats.ttLookup(ply);
@@ -449,8 +451,7 @@ public class Searcher {
         }
 
         int bestScore = -INF_SCORE;
-        int bestMoveOldPos = NN, bestMoveCard = 0, bestMoveNewPos = 0;
-
+        int bestMoveHash = INVALID_MOVE_HASH;
         int pvNextIdx = pvIdx + MAX_DEPTH - ply;
 
         MoveGenerator mg = moveGenerator[ply];
@@ -461,7 +462,7 @@ public class Searcher {
             stats.stateEvaluated(ply);
             mg.move(move);
 
-            // principal variation search (recursive call to find node score)
+            // principal variation search
             int score;
             if (firstMove) {
                 score = -negamax(1 - player, depth - 1, ply + 1, pvNextIdx, -beta, -alpha);
@@ -477,33 +478,30 @@ public class Searcher {
 
             if (score > bestScore) {
                 bestScore = score;
-
-                if (bestScore > alpha) {
+                if (bestScore > alpha)
                     alpha = bestScore;
 
-                    pvTable[pvIdx] = ((cardBits >> 4 + player * 8 + mg.cardUsed[move] * 4) & 15) + (mg.oldPos[move] << 4) + (mg.newPos[move] << 9);
-                    System.arraycopy(pvTable, pvNextIdx, pvTable, pvIdx + 1, pvLength[ply + 1]);
-                    pvLength[ply] = pvLength[ply + 1] + 1;
+                // update PV so that we can report the best score and the series that leads there
+                pvTable[pvIdx] = ((cardBits >> 4 + player * 8 + mg.cardUsed[move] * 4) & 15) + (mg.oldPos[move] << 4) + (mg.newPos[move] << 9);
+                System.arraycopy(pvTable, pvNextIdx, pvTable, pvIdx + 1, pvLength[ply + 1]);
+                pvLength[ply] = pvLength[ply + 1] + 1;
+
+                if (ply == 0) {
+                    pvScore = score;
+                    pvScoreDepth = currentDepthSearched;
+
+                    logMove(false, score);
                 }
 
-                if (ply == 0)
-                    logMove(false, score);
-
-                bestMoveOldPos = mg.oldPos[move];
-                int card0 = ((cardBits >> 4 + player * 8) & 15);
-                int card1 = ((cardBits >> 4 + player * 8 + 4) & 15);
-                bestMoveCard = card0 < card1 ? mg.cardUsed[move] : 1 - mg.cardUsed[move]; // 0 = lower card id, 1 = higher (card order may differ)
-                bestMoveNewPos = mg.newPos[move];
+                bestMoveHash = getMoveHash(player, mg, move);
 
                 // see if we've reached a state where continued evaluation can not possibly affect the outcome
-                if (score == WIN_SCORE) {
-                    stats.playerWinCutoff(player);
+                if (score == WIN_SCORE)
                     break;
-                }
-                if (alpha >= beta) {
-                    stats.alphaBetaCutoff();
 
+                if (alpha >= beta) {
                     // update history table, indicating that this is a good move (since it's causing a cut-off)
+                    // don't include wins or captures in the history, since that is already handled by the move ordering
                     boolean capturedPiece = (bitboardPlayer[1-player] & (1 << mg.newPos[move])) != 0;
                     if (!capturedPiece)
                         historyTable[player][mg.oldPos[move]][mg.newPos[move]] += depth * depth; // give less weight to moves near the leaves, or they will dominate the table
@@ -514,9 +512,18 @@ public class Searcher {
         }
 
         int boundType = bestScore <= alphaOrig ? UPPER_BOUND : (bestScore >= beta ? LOWER_BOUND : EXACT_SCORE);
-        tt.put(zobrist, boundType + (depth << 2) + ((bestScore & 1023) << 8) + (bestMoveOldPos << 18) + (bestMoveCard << 23) + (bestMoveNewPos << 24));
+        tt.put(zobrist, boundType + (depth << 2) + ((bestScore & 1023) << 8) + (bestMoveHash << 18));
 
         return bestScore;
+    }
+
+    private static final int INVALID_MOVE_HASH = NN;
+
+    int getMoveHash(int player, MoveGenerator mg, int move) {
+        int card0 = ((cardBits >> 4 + player * 8) & 15);
+        int card1 = ((cardBits >> 4 + player * 8 + 4) & 15);
+        int cardUsed = card0 < card1 ? mg.cardUsed[move] : 1 - mg.cardUsed[move]; // 0 = lower card id, 1 = higher (card order may differ)
+        return mg.oldPos[move] + (cardUsed << 5) + (mg.newPos[move] << 6);
     }
 
     enum MoveType {
@@ -525,13 +532,15 @@ public class Searcher {
     }
 
     class MoveGenerator {
+        private final int MAX_MOVES = 40;
+
         final int ply;
         final int player;
 
         MoveType moveType;
 
-        int[] oldPos = new int[40], cardUsed = new int[40], newPos = new int[40];
-        long[] moveScore = new long[40];
+        int[] oldPos = new int[MAX_MOVES], cardUsed = new int[MAX_MOVES], newPos = new int[MAX_MOVES];
+        long[] moveScore = new long[MAX_MOVES];
 
         int totalMoves, movesReturned;
 
