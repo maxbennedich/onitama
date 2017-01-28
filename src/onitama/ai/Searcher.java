@@ -85,7 +85,8 @@ public class Searcher {
     /** If this is not 0, the transposition table will be resized to this bit size at the earliest opportunity. */
     private volatile int requestedTTResizeBits = 0;
 
-    public Stats stats;
+    public final Stats stats;
+    private final SearchTimer timer;
 
     final int nominalDepth;
     final int initialTTBits;
@@ -120,7 +121,7 @@ public class Searcher {
         this.initialTTBits = ttBits;
 
         stats = new Stats(null);
-        timer = new Timer(maxTimeMs);
+        timer = new SearchTimer(maxTimeMs, 10000);
     }
 
     public void setState(int playerTurn, String board, CardState cardState) {
@@ -157,6 +158,28 @@ public class Searcher {
                 }
             }
         }
+    }
+
+    public int start() {
+        tt = new TranspositionTable(initialTTBits);
+        stats.tt = tt;
+
+        timer.reset();
+
+        log(" depth    time  score  best moves");
+
+        int score = NO_SCORE;
+        for (currentDepthSearched = 1; currentDepthSearched <= nominalDepth && Math.abs(score) != WIN_SCORE; ++currentDepthSearched) {
+            stats.resetDepthSeen();
+
+            score = negamax(initialPlayer, currentDepthSearched, 0, 0, -INF_SCORE, INF_SCORE);
+            if (timer.timeIsUp(stats.getStatesEvaluated()))
+                break;
+
+            logMove(true, score);
+        }
+
+        return score;
     }
 
     Move getPVMove(int depth) {
@@ -211,118 +234,6 @@ public class Searcher {
         return String.format("%2d/%2d%2s%s%6d   %s", currentDepthSearched, stats.getMaxDepthSeen(), depthComplete ? "->" : "  ", timeStr, score, pvSb);
     }
 
-    Timer timer;
-
-    class Timer {
-        long searchStartTime;
-        long maxTimeMs;
-        boolean timeUp = false;
-
-        volatile boolean requestSuspension = false;
-        volatile boolean suspended = false;
-
-        Object SUSPENSION_REQUESTED_LOCK = new Object();
-        Object SUSPENDED_LOCK = new Object();
-
-        // Check for time-out every this number of states, to prevent calling System.currentTimeMillis() for every node
-        private static final long TIMEOUT_CHECK_FREQUENCY_STATES = 10000;
-
-        long nextStatesEvaluated = TIMEOUT_CHECK_FREQUENCY_STATES;
-
-        Timer(long maxTimeMs) {
-            this.maxTimeMs = maxTimeMs;
-            reset();
-        }
-
-        void reset() {
-            searchStartTime = System.currentTimeMillis();
-        }
-
-        boolean timeIsUp() {
-            if (timeUp)
-                return true;
-
-            // no need to check for suspension/termination too often since it is quite resource intensive
-            if (stats.getStatesEvaluated() < nextStatesEvaluated)
-                return false;
-
-            checkForSuspension();
-
-            nextStatesEvaluated = stats.getStatesEvaluated() + TIMEOUT_CHECK_FREQUENCY_STATES;
-            return timeUp = elapsedTimeMs() > maxTimeMs;
-        }
-
-        void checkForSuspension() {
-            if (requestSuspension) {
-                // let caller know that we are suspended
-                suspended = true;
-                synchronized (SUSPENSION_REQUESTED_LOCK) {
-                    SUSPENSION_REQUESTED_LOCK.notifyAll();
-                }
-
-                // wait until resumed
-                synchronized (SUSPENDED_LOCK) {
-                    while (requestSuspension) {
-                        try { SUSPENDED_LOCK.wait(); }
-                        catch (InterruptedException ignore) { }
-                    }
-                }
-
-                suspended = false;
-            }
-        }
-
-        void suspend() {
-            requestSuspension = true;
-
-            // wait for the thread to actually suspend itself
-            synchronized (SUSPENSION_REQUESTED_LOCK) {
-                while (!suspended) {
-                    try { SUSPENSION_REQUESTED_LOCK.wait(); }
-                    catch (InterruptedException ignore) { }
-                }
-            }
-        }
-
-        void resume() {
-            requestSuspension = false;
-            synchronized (SUSPENDED_LOCK) {
-                SUSPENDED_LOCK.notifyAll();
-            }
-        }
-
-        /** Adjust the timeout to let it run for the additional period provided. */
-        void setRelativeTimeout(long remainingTimeMs) {
-            maxTimeMs = elapsedTimeMs() + remainingTimeMs;
-        }
-
-        long elapsedTimeMs() {
-            return System.currentTimeMillis() - searchStartTime;
-        }
-    }
-
-    public int start() {
-        tt = new TranspositionTable(initialTTBits);
-        stats.tt = tt;
-
-        timer.reset();
-
-        log(" depth    time  score  best moves");
-
-        int score = NO_SCORE;
-        for (currentDepthSearched = 1; currentDepthSearched <= nominalDepth && Math.abs(score) != WIN_SCORE; ++currentDepthSearched) {
-            stats.resetDepthSeen();
-
-            score = negamax(initialPlayer, currentDepthSearched, 0, 0, -INF_SCORE, INF_SCORE);
-            if (timer.timeIsUp())
-                break;
-
-            logMove(true, score);
-        }
-
-        return score;
-    }
-
     /** Releases the majority of memory held by this instance (such as the TT). Moves and non-TT related statistics is still available after this call. */
     public void releaseMemory() {
         tt = new TranspositionTable(1);
@@ -333,7 +244,7 @@ public class Searcher {
      * This call is not blocking. The search will typically stop within a few milliseconds.
      */
     public void stop() {
-        timer.timeUp = true;
+        timer.stop();
     }
 
     /** Suspend (pause) search. Blocking call. Does not return until the search is suspended, which will typically happen within a few milliseconds. */
@@ -385,7 +296,7 @@ public class Searcher {
 
             // recursive call to find node score
             int score = -quiesce(1 - player, ply + 1, qd + 1, pvNextIdx, -beta, -alpha);
-            if (timer.timeIsUp()) return TIME_OUT_SCORE;
+            if (timer.timeIsUp(stats.getStatesEvaluated())) return TIME_OUT_SCORE;
 
             // undo move
             mg.unmove(move);
@@ -472,7 +383,7 @@ public class Searcher {
                 if (score > alpha && score < beta) // if it failed high, search again but the entire window
                     score = -negamax(1 - player, depth - 1, ply + 1, pvNextIdx, -beta, -alpha);
             }
-            if (timer.timeIsUp()) return TIME_OUT_SCORE;
+            if (timer.timeIsUp(stats.getStatesEvaluated())) return TIME_OUT_SCORE;
 
             mg.unmove(move);
 
