@@ -252,7 +252,7 @@ public class Searcher {
                     break;
 
                 if (alpha >= beta) {
-                    // update history table, indicating that this is a good move (since it's causing a cut-off)
+                    // update history table, indicating that this is a good move (since it's causing a cutoff)
                     // don't include wins or captures in the history, since that is already handled by the move ordering
                     boolean capturedPiece = (state.bitboardPlayer[1-player] & (1 << mg.newPos[move])) != 0;
                     if (!capturedPiece)
