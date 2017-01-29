@@ -81,7 +81,7 @@ public class Searcher {
     private static final int LOWER_BOUND = 1;
     private static final int UPPER_BOUND = 2;
 
-    private TranspositionTable tt;
+    private final TranspositionTable tt = new TranspositionTable(1);
 
     /** If this is not 0, the transposition table will be resized to this bit size at the earliest opportunity. */
     private volatile int requestedTTResizeBits = 0;
@@ -118,7 +118,7 @@ public class Searcher {
         this.nominalDepth = nominalDepth;
         this.initialTTBits = ttBits;
 
-        stats = new Stats(null);
+        stats = new Stats(tt);
         timer = new SearchTimer(maxTimeMs, 10000);
     }
 
@@ -133,8 +133,7 @@ public class Searcher {
     }
 
     public int start() {
-        tt = new TranspositionTable(initialTTBits);
-        stats.tt = tt;
+        tt.resize(initialTTBits);
 
         timer.reset();
 
@@ -407,7 +406,7 @@ public class Searcher {
 
     /** Releases the majority of memory held by this instance (such as the TT). Moves and non-TT related statistics is still available after this call. */
     public void releaseMemory() {
-        tt = new TranspositionTable(1);
+        tt.truncate();
     }
 
     /**

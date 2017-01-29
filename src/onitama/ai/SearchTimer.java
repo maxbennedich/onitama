@@ -5,20 +5,20 @@ package onitama.ai;
  * and adjusting the search time once the search has started.
  */
 class SearchTimer {
-    long searchStartTime;
-    long maxTimeMs;
+    private long searchStartTime;
+    private long maxTimeMs;
     private boolean timeUp = false;
 
-    volatile boolean requestSuspension = false;
-    volatile boolean suspended = false;
+    private volatile boolean requestSuspension = false;
+    private volatile boolean suspended = false;
 
-    Object SUSPENSION_REQUESTED_LOCK = new Object();
-    Object SUSPENDED_LOCK = new Object();
+    private final Object SUSPENSION_REQUESTED_LOCK = new Object();
+    private final Object SUSPENDED_LOCK = new Object();
 
     /** Check for time-out every this number of states, to prevent calling System.currentTimeMillis() for every node. */
-    final long timeoutCheckFrequency;
+    private final long timeoutCheckFrequency;
 
-    long nextTimeoutCheckCount;
+    private long nextTimeoutCheckCount;
 
     /** @param timeoutCheckFrequency See {@link #timeoutCheckFrequency} */
     SearchTimer(long maxTimeMs, long timeoutCheckFrequency) {

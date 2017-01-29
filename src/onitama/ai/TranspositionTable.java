@@ -16,15 +16,15 @@ import java.util.concurrent.Semaphore;
 public class TranspositionTable {
     public static final int BYTES_PER_ENTRY = 8 + 4;
 
-    public static final int NO_ENTRY = Integer.MAX_VALUE;
+    static final int NO_ENTRY = Integer.MAX_VALUE;
 
     /** Semaphore used to prevent tables from different threads from resizing at the same time (which could lead to OOM). */
     private static final Semaphore RESIZE_SEMAPHORE = new Semaphore(1);
 
     private int ttBits;
 
-    long[] keys;
-    int[] states;
+    private long[] keys;
+    private int[] states;
 
     public TranspositionTable(int ttBits) {
         this.ttBits = ttBits;
@@ -90,6 +90,13 @@ public class TranspositionTable {
         RESIZE_SEMAPHORE.release();
 
         return true;
+    }
+
+    /** Replaces this table with a single entry table. Destructive operation intended to release the memory held by this instance. */
+    void truncate() {
+        ttBits = 1;
+        keys = new long[1];
+        states = new int[1];
     }
 
     // Slow since it loops over all entries. (Intended for post-game analysis only.)

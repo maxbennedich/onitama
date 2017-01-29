@@ -1,7 +1,7 @@
 package onitama.ai;
 
 public class Stats {
-    static class PlyStats {
+    private static class PlyStats {
         long ttLookups = 0;
         long ttHits = 0;
 
@@ -20,7 +20,7 @@ public class Stats {
     private long quiescenceStatesEvaluated = 0;
     private long leavesEvaluated = 0;
 
-    TranspositionTable tt;
+    private final TranspositionTable tt;
 
     Stats(TranspositionTable tt) {
         this.tt = tt;

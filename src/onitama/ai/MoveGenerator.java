@@ -73,7 +73,7 @@ class MoveGenerator {
         this.moveType = moveType;
         generatedAllMoves = false;
 
-        // Lazy move generation; start with just generating the best move, hopefully it will lead to a cutoff
+        // lazy move generation; start with just generating the best move, hopefully it will lead to a cutoff
         generateBestMove(seenState);
     }
 
@@ -89,14 +89,14 @@ class MoveGenerator {
         if (++movesReturned > totalMoves)
             return -1;
 
-        // lazy move sorting
+        // lazy move sorting; simply loop over all moves and return the top scoring one
         long maxScore = -1;
         int move = -1;
         for (int i = 0; i < totalMoves; ++i)
-            if (moveScore[i] > maxScore) { maxScore = moveScore[i]; move = i; } // TODO: try fetching the score straight from the history table
+            if (moveScore[i] > maxScore) { maxScore = moveScore[i]; move = i; }
+
         moveScore[move] = -1; // so that we don't pick this move during the next call to this method
 
-        // exchange [move] with [idx] ...
         return move;
     }
 
