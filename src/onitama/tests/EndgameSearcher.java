@@ -1,5 +1,7 @@
 package onitama.tests;
 
+import static onitama.model.GameDefinition.NN;
+
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -49,12 +51,12 @@ public class EndgameSearcher {
         AtomicInteger win1Count = new AtomicInteger(0);
 
         List<String> allBoards = new ArrayList<>();
-        char[] board = new char[Searcher.NN];
+        char[] board = new char[NN];
         Arrays.fill(board, '.');
 
         // king + king (600 combos)
-        for (int wk = 0; wk < Searcher.NN; ++wk) {
-            for (int bk = 0; bk < Searcher.NN; ++bk) {
+        for (int wk = 0; wk < NN; ++wk) {
+            for (int bk = 0; bk < NN; ++bk) {
                 if (bk == wk) continue;
                 board[wk] = 'W';
                 board[bk] = 'B';
@@ -67,10 +69,10 @@ public class EndgameSearcher {
         }
 
         // king + king + pawn (13800 + 13800 combos)
-        for (int wk = 0; wk < Searcher.NN; ++wk) {
-            for (int bk = 0; bk < Searcher.NN; ++bk) {
+        for (int wk = 0; wk < NN; ++wk) {
+            for (int bk = 0; bk < NN; ++bk) {
                 if (bk == wk) continue;
-                for (int wp = 0; wp < Searcher.NN; ++wp) {
+                for (int wp = 0; wp < NN; ++wp) {
                     if (wp == wk || wp == bk) continue;
                     board[wk] = 'W';
                     board[bk] = 'B';

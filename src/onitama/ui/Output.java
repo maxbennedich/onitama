@@ -1,5 +1,7 @@
 package onitama.ui;
 
+import static onitama.model.GameDefinition.N;
+
 import onitama.ai.Searcher;
 import onitama.model.Card;
 import onitama.model.CardState;
@@ -34,9 +36,9 @@ public class Output {
 
     public static void printBoard(int[] bitboardPlayer, int[] bitboardKing) {
         println("  +---+---+---+---+---+");
-        for (int y = 0, bit = 1; y < Searcher.N; ++y) {
-            printf("%d |", Searcher.N-y);
-            for (int x = 0; x < Searcher.N; ++x, bit *= 2) {
+        for (int y = 0, bit = 1; y < N; ++y) {
+            printf("%d |", N-y);
+            for (int x = 0; x < N; ++x, bit *= 2) {
                 int c = 0;
                 if ((bitboardKing[0] & bit) != 0) c = 3;
                 else if ((bitboardKing[1] & bit) != 0) c = 4;
@@ -48,7 +50,7 @@ public class Output {
         }
 
         print(" ");
-        for (int x = 0; x < Searcher.N; ++x)
+        for (int x = 0; x < N; ++x)
             printf("   %c", 'a'+x);
 
         println();

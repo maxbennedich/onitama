@@ -1,9 +1,14 @@
 package onitama.ai;
 
+import static onitama.model.GameDefinition.N;
+
 import onitama.model.CardState;
 import onitama.model.GameDefinition;
 
 class SearchState {
+    private static final int PAWN = 0;
+    private static final int KING = 1;
+
     int[] bitboardPlayer = {0, 0};
     int[] bitboardKing = {0, 0};
     int cardBits;
@@ -23,8 +28,8 @@ class SearchState {
     }
 
     void initBoard(String board) {
-        for (int y = 0, bit = 1; y < Searcher.N; ++y) {
-            for (int x = 0; x < Searcher.N; ++x, bit *= 2) {
+        for (int y = 0, bit = 1; y < N; ++y) {
+            for (int x = 0; x < N; ++x, bit *= 2) {
                 if (board.charAt(y*5+x) != '.') {
                     if (board.charAt(y*5+x) == 'w') { bitboardPlayer[0] |= bit; zobrist ^= Zobrist.PIECE[0][0][y*5+x]; }
                     else if (board.charAt(y*5+x) == 'b') { bitboardPlayer[1] |= bit; zobrist ^= Zobrist.PIECE[1][0][y*5+x]; }
@@ -37,8 +42,8 @@ class SearchState {
 
     /**
      * @return True if the first card in the hand has a lower card id than the second card. Since the zobrist hash doesn't
-     * differentiate between card order for each player's two cards, this logic is used to store the card used in a single bit,
-     * by just storing whether the lower or higher card was used.
+     * differentiate between card order for each player's two cards, this logic is used to store which of the two cards is
+     * used in a single bit, by just storing whether the lower or higher card was used.
      */
     boolean firstCardLower(int player) {
         int card0 = ((cardBits >> 4 + player * 8) & 15);
@@ -63,8 +68,8 @@ class SearchState {
             // opponent player piece captured
             bitboardPlayer[1-player] &= ~newPosMask; // remove opponent piece
 
-            int capturedPiece = (bitboardKing[1-player] & newPosMask) != 0 ? Searcher.KING : Searcher.PAWN;
-            if (capturedPiece == Searcher.KING)
+            int capturedPiece = (bitboardKing[1-player] & newPosMask) != 0 ? KING : PAWN;
+            if (capturedPiece == KING)
                 bitboardKing[1-player] &= ~newPosMask; // remove opponent king
 
             zobrist ^= Zobrist.PIECE[1 - player][capturedPiece][newPos];
@@ -73,8 +78,8 @@ class SearchState {
         bitboardPlayer[player] &= ~oldPosMask; // remove piece from current position
         bitboardPlayer[player] |= newPosMask; // add piece to new position
 
-        int movedPiece = bitboardKing[player] == oldPosMask ? Searcher.KING : Searcher.PAWN;
-        if (movedPiece == Searcher.KING) {
+        int movedPiece = bitboardKing[player] == oldPosMask ? KING : PAWN;
+        if (movedPiece == KING) {
             bitboardKing[player] &= ~oldPosMask; // remove king from current position
             bitboardKing[player] |= newPosMask; // add king to new position
         }

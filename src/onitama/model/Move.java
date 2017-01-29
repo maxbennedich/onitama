@@ -13,7 +13,7 @@ public class Move {
     }
 
     @Override public String toString() {
-        return String.format("%s %c%c%c%c", card.name, 'a'+px, '5'-py, 'a'+nx, '5'-ny);
+        return String.format("%s %c%c-%c%c", card.name, 'a'+px, '5'-py, 'a'+nx, '5'-ny);
     }
 
     public int getUniqueId() {

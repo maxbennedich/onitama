@@ -1,11 +1,14 @@
 package onitama.ai;
 
+import static onitama.model.GameDefinition.N;
+import static onitama.model.GameDefinition.NN;
+
 import java.util.ArrayList;
 import java.util.List;
 
+import onitama.ai.MoveGenerator.MoveType;
 import onitama.model.Card;
 import onitama.model.CardState;
-import onitama.model.GameDefinition;
 import onitama.model.GameState;
 import onitama.model.Move;
 import onitama.model.Pair;
@@ -67,22 +70,16 @@ import onitama.ui.Output;
  * - Compress TT better
  */
 public class Searcher {
-    static final int NO_SCORE = 1000; // some score that will never occur
-    static final int INF_SCORE = 999; // "infinite" alpha beta values
-    static final int TIME_OUT_SCORE = 998; // invalid score indicating that a time out occurred during recursion
+    private static final int NO_SCORE = 1000; // some score that will never occur
+    private static final int INF_SCORE = 999; // "infinite" alpha beta values
+    private static final int TIME_OUT_SCORE = 998; // invalid score indicating that a time out occurred during recursion
     public static final int WIN_SCORE = 500;
-
-    public static final int N = 5; // board dimension
-    public static final int NN = N*N; // board dimension^2
-
-    static final int PAWN = 0;
-    static final int KING = 1;
 
     static final int MAX_DEPTH = 63;
 
-    static final int EXACT_SCORE = 0;
-    static final int LOWER_BOUND = 1;
-    static final int UPPER_BOUND = 2;
+    private static final int EXACT_SCORE = 0;
+    private static final int LOWER_BOUND = 1;
+    private static final int UPPER_BOUND = 2;
 
     public TranspositionTable tt;
 
@@ -131,7 +128,7 @@ public class Searcher {
 
         initialPlayer = playerTurn;
         for (int d = 0, player = initialPlayer; d < MAX_DEPTH; ++d, player = 1 - player)
-            moveGenerator[d] = new MoveGenerator(d, player);
+            moveGenerator[d] = new MoveGenerator(state, d, player, historyTable, stats);
     }
 
     public int start() {
@@ -154,141 +151,6 @@ public class Searcher {
         }
 
         return score;
-    }
-
-    Move getPVMove(int depth) {
-        int cardId = pvTable[depth] & 15;
-        int p = (pvTable[depth] >> 4) & 31;
-        int n = pvTable[depth] >> 9;
-        return new Move(Card.CARDS[cardId], p%N, p/N, n%N, n/N);
-    }
-
-    /** The currently best scoring move (the first move of the principal variation). */
-    public Move getBestMove() {
-        return getPVMove(0);
-    }
-
-    /** The currently best estimated score for the game being searched (the result of playing the principal variation). */
-    public int getScore() {
-        return pvScore;
-    }
-
-    /** The nominal search depth used to calculate the {@link #getScore}. */
-    public int getScoreSearchDepth() {
-        return pvScoreDepth;
-    }
-
-    void log(String str) {
-        if (log)
-            System.out.println(str);
-    }
-
-    void logMove(boolean depthComplete, int score) {
-        if (!log) return;
-
-        double time = timer.elapsedTimeMs() / 1000.0;
-        if (!depthComplete && time < 1)
-            return;
-
-        log(getMoveString(depthComplete, score));
-    }
-
-    public String getMoveString(boolean depthComplete, int score) {
-        double time = timer.elapsedTimeMs() / 1000.0;
-
-        String timeStr = String.format(time < 10 ? "%7.2f" : "%5.0f s", time);
-
-        StringBuilder pvSb = new StringBuilder();
-        for (int d = 0; d < pvLength[0]; ++d) {
-            Move move = getPVMove(d);
-            if (d > 0) pvSb.append(" | ");
-            pvSb.append(String.format("%s %c%c-%c%c", move.card.name, 'a'+move.px, '5'-move.py, 'a'+move.nx, '5'-move.ny));
-        }
-
-        return String.format("%2d/%2d%2s%s%6d   %s", currentDepthSearched, stats.getMaxDepthSeen(), depthComplete ? "->" : "  ", timeStr, score, pvSb);
-    }
-
-    /** Releases the majority of memory held by this instance (such as the TT). Moves and non-TT related statistics is still available after this call. */
-    public void releaseMemory() {
-        tt = new TranspositionTable(1);
-    }
-
-    /**
-     * Call this method to gracefully stop an ongoing search. The best move found so far can be obtained through {@link #getBestMove()}.
-     * This call is not blocking. The search will typically stop within a few milliseconds.
-     */
-    public void stop() {
-        timer.stop();
-    }
-
-    /** Suspend (pause) search. Blocking call. Does not return until the search is suspended, which will typically happen within a few milliseconds. */
-    public void suspend() {
-        timer.suspend();
-    }
-
-    /** Resume a paused search. */
-    public void resume() {
-        timer.resume();
-    }
-
-    /** Adjust the timeout for an ongoing search, to let it run for the additional period provided. */
-    public void setRelativeTimeout(long remainingTimeMs) {
-        timer.setRelativeTimeout(remainingTimeMs);
-    }
-
-    /**
-     * Issues a resize request to the transposition table and returns immediately. The resize will typically happen within a few milliseconds.
-     * This is a no-op if the new size is the same as the current size.
-     */
-    public void resizeTTAsync(int ttBits) {
-        requestedTTResizeBits = ttBits;
-    }
-
-    int quiesce(int player, int ply, int qd, int pvIdx, int alpha, int beta) {
-        pvLength[ply] = 0; // default to no pv
-
-        if (state.won(1-player))
-            return -WIN_SCORE;
-
-        stats.depthSeen(ply);
-
-        // use current evaluation as a lower bound for the score (a higher score is likely possible by making a move)
-        stats.leafEvaluated();
-        int standPat = state.score(player);
-        if (standPat > alpha)
-            alpha = standPat;
-        if (alpha >= beta)
-            return standPat;
-
-        int pvNextIdx = pvIdx + MAX_DEPTH - ply;
-
-        MoveGenerator mg = moveGenerator[ply];
-        mg.reset(TranspositionTable.NO_ENTRY, MoveType.CAPTURE_OR_WIN);
-
-        for (int move; (move = mg.getNextMoveIdx()) != -1; ) {
-            stats.quiescenceStateEvaluated(ply);
-            mg.move(move);
-
-            // recursive call to find node score
-            int score = -quiesce(1 - player, ply + 1, qd + 1, pvNextIdx, -beta, -alpha);
-            if (timer.timeIsUp(stats.getStatesEvaluated())) return TIME_OUT_SCORE;
-
-            // undo move
-            mg.unmove();
-
-            if (score > alpha) {
-                alpha = score;
-
-                pvTable[pvIdx] = ((state.cardBits >> 4 + player * 8 + mg.cardUsed[move] * 4) & 15) + (mg.oldPos[move] << 4) + (mg.newPos[move] << 9);
-                System.arraycopy(pvTable, pvNextIdx, pvTable, pvIdx + 1, pvLength[ply + 1]);
-                pvLength[ply] = pvLength[ply + 1] + 1;
-
-                if (alpha >= beta)
-                    break;
-            }
-        }
-
-        return alpha;
     }
 
     int negamax(int player, int depth, int ply, int pvIdx, int alpha, int beta) {
@@ -403,6 +265,53 @@ public class Searcher {
         return bestScore;
     }
 
+    int quiesce(int player, int ply, int qd, int pvIdx, int alpha, int beta) {
+        pvLength[ply] = 0; // default to no pv
+
+        if (state.won(1-player))
+            return -WIN_SCORE;
+
+        stats.depthSeen(ply);
+
+        // use current evaluation as a lower bound for the score (a higher score is likely possible by making a move)
+        stats.leafEvaluated();
+        int standPat = state.score(player);
+        if (standPat > alpha)
+            alpha = standPat;
+        if (alpha >= beta)
+            return standPat;
+
+        int pvNextIdx = pvIdx + MAX_DEPTH - ply;
+
+        MoveGenerator mg = moveGenerator[ply];
+        mg.reset(TranspositionTable.NO_ENTRY, MoveType.CAPTURE_OR_WIN);
+
+        for (int move; (move = mg.getNextMoveIdx()) != -1; ) {
+            stats.quiescenceStateEvaluated(ply);
+            mg.move(move);
+
+            // recursive call to find node score
+            int score = -quiesce(1 - player, ply + 1, qd + 1, pvNextIdx, -beta, -alpha);
+            if (timer.timeIsUp(stats.getStatesEvaluated())) return TIME_OUT_SCORE;
+
+            // undo move
+            mg.unmove();
+
+            if (score > alpha) {
+                alpha = score;
+
+                pvTable[pvIdx] = ((state.cardBits >> 4 + player * 8 + mg.cardUsed[move] * 4) & 15) + (mg.oldPos[move] << 4) + (mg.newPos[move] << 9);
+                System.arraycopy(pvTable, pvNextIdx, pvTable, pvIdx + 1, pvLength[ply + 1]);
+                pvLength[ply] = pvLength[ply + 1] + 1;
+
+                if (alpha >= beta)
+                    break;
+            }
+        }
+
+        return alpha;
+    }
+
     private static final int INVALID_MOVE_HASH = NN;
 
     int getMoveHash(int player, MoveGenerator mg, int move) {
@@ -410,137 +319,92 @@ public class Searcher {
         return mg.oldPos[move] + (cardUsed << 5) + (mg.newPos[move] << 6);
     }
 
-    enum MoveType {
-        ALL,
-        CAPTURE_OR_WIN,
+    /** @return Move at the given depth for the current principal variation. */
+    Move getPVMove(int depth) {
+        int cardId = pvTable[depth] & 15;
+        int p = (pvTable[depth] >> 4) & 31;
+        int n = pvTable[depth] >> 9;
+        return new Move(Card.CARDS[cardId], p%N, p/N, n%N, n/N);
     }
 
-    class MoveGenerator {
-        private final int MAX_MOVES = 40;
+    /** The currently best scoring move (the first move of the principal variation). */
+    public Move getBestMove() {
+        return getPVMove(0);
+    }
 
-        final int ply;
-        final int player;
+    /** The currently best estimated score for the game being searched (the result of playing the principal variation). */
+    public int getScore() {
+        return pvScore;
+    }
 
-        MoveType moveType;
+    /** The nominal search depth used to calculate the {@link #getScore}. */
+    public int getScoreSearchDepth() {
+        return pvScoreDepth;
+    }
 
-        int[] oldPos = new int[MAX_MOVES], cardUsed = new int[MAX_MOVES], newPos = new int[MAX_MOVES];
-        long[] moveScore = new long[MAX_MOVES];
+    void log(String str) {
+        if (log)
+            System.out.println(str);
+    }
 
-        int totalMoves, movesReturned;
+    void logMove(boolean depthComplete, int score) {
+        if (!log) return;
 
-        boolean generatedAllMoves, generatedBestMove;
-        int bestMoveOldPos, bestMoveCard, bestMoveNewPos;
+        double time = timer.elapsedTimeMs() / 1000.0;
+        if (!depthComplete && time < 1)
+            return;
 
-        // move order:
-        // 1. best move (will always include winning moves thanks to quiescence search)
-        // 2. winning moves (king capture and moving king to winning position)
-        // 3. piece captures
-        // 4. history table heuristic
-        final long WIN = Long.MAX_VALUE;
-        final long CAPTURE = Long.MAX_VALUE - 1;
+        log(getMoveString(depthComplete, score));
+    }
 
-        final SearchState prevState = new SearchState();
+    public String getMoveString(boolean depthComplete, int score) {
+        double time = timer.elapsedTimeMs() / 1000.0;
 
-        MoveGenerator(int ply, int player) {
-            this.ply = ply;
-            this.player = player;
+        String timeStr = String.format(time < 10 ? "%7.2f" : "%5.0f s", time);
+
+        StringBuilder pvSb = new StringBuilder();
+        for (int d = 0; d < pvLength[0]; ++d) {
+            if (d > 0) pvSb.append(" | ");
+            pvSb.append(getPVMove(d));
         }
 
-        void reset(int seenState, MoveType moveType) {
-            this.moveType = moveType;
-            generatedAllMoves = false;
+        return String.format("%2d/%2d%2s%s%6d   %s", currentDepthSearched, stats.getMaxDepthSeen(), depthComplete ? "->" : "  ", timeStr, score, pvSb);
+    }
 
-            // Lazy move generation -- start with just generating the best move (found during previous search in iterative deepening and stored in the TT)
-            // This move always needs to be tested, but will hopefully lead to a cut-off, so we don't need to generate the remaining moves.
-            // If there is no cut-off, we will at least benefit from the history heuristic updates that this move produces.
-            generateBestMove(seenState);
-        }
+    /** Releases the majority of memory held by this instance (such as the TT). Moves and non-TT related statistics is still available after this call. */
+    public void releaseMemory() {
+        tt = new TranspositionTable(1);
+    }
 
-        int getNextMoveIdx() {
-            if (generatedBestMove) {
-                generatedBestMove = false;
-                return 0;
-            }
+    /**
+     * Call this method to gracefully stop an ongoing search. The best move found so far can be obtained through {@link #getBestMove()}.
+     * This call is not blocking. The search will typically stop within a few milliseconds.
+     */
+    public void stop() {
+        timer.stop();
+    }
 
-            if (!generatedAllMoves)
-                generateAllMoves();
+    /** Suspend (pause) search. Blocking call. Does not return until the search is suspended, which will typically happen within a few milliseconds. */
+    public void suspend() {
+        timer.suspend();
+    }
 
-            if (++movesReturned > totalMoves)
-                return -1;
+    /** Resume a paused search. */
+    public void resume() {
+        timer.resume();
+    }
 
-            long maxScore = -1;
-            int move = -1;
-            for (int i = 0; i < totalMoves; ++i)
-                if (moveScore[i] > maxScore) { maxScore = moveScore[i]; move = i; }
-            moveScore[move] = -1; // so that we don't pick this move during the next call to this method
-            return move;
-        }
+    /** Adjust the timeout for an ongoing search, to let it run for the additional period provided. */
+    public void setRelativeTimeout(long remainingTimeMs) {
+        timer.setRelativeTimeout(remainingTimeMs);
+    }
 
-        void generateBestMove(int seenState) {
-            stats.bestMoveLookup(ply);
-            if (seenState != TranspositionTable.NO_ENTRY) {
-                stats.bestMoveHit(ply);
-                oldPos[0] = bestMoveOldPos = (seenState >> 18) & 31;
-                int seenCard = (seenState >> 23) & 1;
-                cardUsed[0] = bestMoveCard = state.firstCardLower(player) ? seenCard : 1 - seenCard; // 0 = lower card id, 1 = higher (card order may differ)
-                newPos[0] = bestMoveNewPos = (seenState >> 24) & 31;
-                generatedBestMove = true;
-            } else {
-                bestMoveOldPos = bestMoveCard = bestMoveNewPos = -1;
-                generatedBestMove = false;
-            }
-        }
-
-        void generateAllMoves() {
-            generatedAllMoves = true;
-            totalMoves = 0;
-            movesReturned = 0;
-
-            for (int playerBitmask = state.bitboardPlayer[player], p = -1, pz = -1; ; ) {
-                playerBitmask >>= (pz+1);
-                if ((pz = Integer.numberOfTrailingZeros(playerBitmask)) == 32) break;
-                p += pz + 1;
-
-                for (int card = 0; card < GameDefinition.CARDS_PER_PLAYER; ++card) {
-                    int moveBitmask = Card.CARDS[((state.cardBits >> 4 + player * 8 + card * 4) & 15)].moveBitmask[player][p];
-
-                    if (moveType == MoveType.CAPTURE_OR_WIN)
-                        moveBitmask &= (state.bitboardPlayer[1-player] | GameDefinition.WIN_BITMASK[player]); // only captures and wins
-
-                    moveBitmask &= ~state.bitboardPlayer[player]; // exclude moves onto oneself
-
-                    for (int np = -1, npz = -1; ; ) {
-                        moveBitmask >>= (npz+1);
-                        if ((npz = Integer.numberOfTrailingZeros(moveBitmask)) == 32) break;
-                        np += npz + 1;
-
-                        if (p == bestMoveOldPos && card == bestMoveCard && np == bestMoveNewPos) continue;
-
-                        // add move
-                        oldPos[totalMoves] = p;
-                        cardUsed[totalMoves] = card;
-                        newPos[totalMoves] = np;
-
-                        int newPosMask = 1 << np;
-                        if ((state.bitboardKing[1-player] & newPosMask) != 0) moveScore[totalMoves] = WIN; // captured king
-                        else if ((state.bitboardKing[player] == (1 << p) && np == GameDefinition.WIN_POSITION[player])) moveScore[totalMoves] = WIN; // moved king to winning position
-                        else if ((state.bitboardPlayer[1-player] & newPosMask) != 0) moveScore[totalMoves] = CAPTURE; // captured piece
-                        else moveScore[totalMoves] = historyTable[player][p][np];
-
-                        ++totalMoves;
-                    }
-                }
-            }
-        }
-
-        void move(int m) {
-            prevState.copyFrom(state);
-            state.move(player, oldPos[m], newPos[m], cardUsed[m]);
-        }
-
-        void unmove() {
-            state.copyFrom(prevState);
-        }
+    /**
+     * Issues a resize request to the transposition table and returns immediately. The resize will typically happen within a few milliseconds.
+     * This is a no-op if the new size is the same as the current size.
+     */
+    public void resizeTTAsync(int ttBits) {
+        requestedTTResizeBits = ttBits;
     }
 
     public void printBoard() {

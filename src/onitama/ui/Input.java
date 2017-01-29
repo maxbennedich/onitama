@@ -1,8 +1,9 @@
 package onitama.ui;
 
+import static onitama.model.GameDefinition.N;
+
 import java.util.Scanner;
 
-import onitama.ai.Searcher;
 import onitama.model.Card;
 import onitama.model.CardState;
 import onitama.model.GameDefinition;
@@ -90,7 +91,7 @@ public class Input {
     }
 
     static boolean verifyRange(int n) {
-        return n >= 0 && n < Searcher.N;
+        return n >= 0 && n < N;
     }
 
 }

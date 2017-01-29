@@ -1,6 +1,7 @@
 package onitama.model;
 
-import onitama.ai.Searcher;
+import static onitama.model.GameDefinition.N;
+import static onitama.model.GameDefinition.NN;
 
 public class GameState {
     public String board;
@@ -16,9 +17,9 @@ public class GameState {
      */
     public void move(int player, Move move) {
         // update board
-        int p = move.px + move.py * Searcher.N;
+        int p = move.px + move.py * N;
         char[] boardChars = board.toCharArray();
-        boardChars[move.nx + move.ny * Searcher.N] = boardChars[p];
+        boardChars[move.nx + move.ny * N] = boardChars[p];
         boardChars[p] = '.';
         board = new String(boardChars);
 
@@ -32,8 +33,8 @@ public class GameState {
      * Note: This method is meant for the UI only and as such is quite inefficient.
      */
     public int playerWon() {
-        if (board.charAt(Searcher.N / 2) == 'W') return 0;
-        if (board.charAt(Searcher.NN - 1 - (Searcher.N / 2)) == 'B') return 1;
+        if (board.charAt(N / 2) == 'W') return 0;
+        if (board.charAt(NN - 1 - (N / 2)) == 'B') return 1;
         if (board.indexOf('B') == -1) return 0;
         if (board.indexOf('W') == -1) return 1;
         return -1;

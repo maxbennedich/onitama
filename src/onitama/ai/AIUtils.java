@@ -1,5 +1,7 @@
 package onitama.ai;
 
+import static onitama.model.GameDefinition.NN;
+
 import java.util.List;
 
 import onitama.model.Card;
@@ -34,8 +36,8 @@ public class AIUtils {
     private static char[] BOARD_MARKERS = new char[] {' ', 'w', 'b', 'W', 'B'};
 
     private static String getBoard(int[] bitboardPlayer, int[] bitboardKing) {
-        char[] board = new char[Searcher.NN];
-        for (int p = 0, bit = 1; p < Searcher.NN; ++p, bit *= 2) {
+        char[] board = new char[NN];
+        for (int p = 0, bit = 1; p < NN; ++p, bit *= 2) {
             int c = 0;
             if ((bitboardKing[0] & bit) != 0) c = 3;
             else if ((bitboardKing[1] & bit) != 0) c = 4;

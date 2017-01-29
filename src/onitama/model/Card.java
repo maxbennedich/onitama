@@ -1,6 +1,7 @@
 package onitama.model;
 
-import onitama.ai.Searcher;
+import static onitama.model.GameDefinition.N;
+import static onitama.model.GameDefinition.NN;
 
 public class Card {
     private static int cardId = 0;
@@ -30,7 +31,7 @@ public class Card {
     public int[] moves;
     public int id;
 
-    public final int[][] moveBitmask = new int[2][Searcher.NN];
+    public final int[][] moveBitmask = new int[2][NN];
 
     private Card(String name, int[] moves) {
         this.name = name;
@@ -41,16 +42,16 @@ public class Card {
 
         /** For each combination of player, and board square, create a bitmask of valid moves. */
         for (int player = 0; player < 2; ++player) {
-            for (int p = 0; p < Searcher.NN; ++p) {
+            for (int p = 0; p < NN; ++p) {
                 int bitmask = 0;
 
-                int px = p % Searcher.N, py = p / Searcher.N;
+                int px = p % N, py = p / N;
                 for (int move = 0; move < moves.length; move += 2) {
                     int mx = moves[move], my = moves[move+1];
                     if (player == 1) { mx *= -1; my *= -1; }
                     int nx = px + mx, ny = py + my;
-                    if (nx >= 0 && nx < Searcher.N && ny >= 0 && ny < Searcher.N)
-                        bitmask |= 1 << nx + ny * Searcher.N;
+                    if (nx >= 0 && nx < N && ny >= 0 && ny < N)
+                        bitmask |= 1 << nx + ny * N;
                 }
 
                 moveBitmask[player][p] = bitmask;
