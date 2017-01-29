@@ -5,7 +5,7 @@ import onitama.model.Move;
 
 public abstract class Player {
 
-    final protected int player;
+    protected final int player;
 
     Player(int player) {
         this.player = player;

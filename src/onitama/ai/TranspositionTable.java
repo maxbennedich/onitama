@@ -99,7 +99,7 @@ public class TranspositionTable {
         states = new int[1];
     }
 
-    // Slow since it loops over all entries. (Intended for post-game analysis only.)
+    /** Slow since it loops over all entries. (Intended for post-game analysis only.) */
     int usedEntries() {
         int used = 0;
         for (int n = 0; n < sizeEntries(); ++n)

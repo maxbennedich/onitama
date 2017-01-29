@@ -6,20 +6,20 @@ import onitama.model.GameState;
 public class Onitama {
     static final String EXTRA_CARD_NAME = "Extra";
 
-    static final String START_BOARD =
+    private static final String START_BOARD =
             "bbBbb" +
             "....." +
             "....." +
             "....." +
             "wwWww";
 
-    Player[] players;
+    private Player[] players;
 
     public static void main(String ... args) throws Exception {
         new Onitama().run();
     }
 
-    void run() {
+    private void run() {
         Output.printWelcomeMessage();
         CardState cardState = Input.queryStartCards();
         players = Input.queryPlayers();

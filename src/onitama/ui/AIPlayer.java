@@ -12,14 +12,14 @@ import onitama.model.SearchParameters;
 
 public class AIPlayer extends Player {
 
+    private static final long MAX_TT_PONDER_MEMORY = (long)(0.5 * 1024 * 1024 * 1024);
+
     private final SearchParameters searchParameters;
 
     private final boolean ponder;
 
     private Ponderer ponderer;
     private PonderUIThread ponderUIThread;
-
-    private static final long MAX_TT_PONDER_MEMORY = (long)(0.5 * 1024 * 1024 * 1024);
 
     public AIPlayer(int player, SearchParameters searchParameters, boolean ponder) {
         super(player);
@@ -58,19 +58,19 @@ public class AIPlayer extends Player {
         if (move == null)
             move = AIUtils.startNewSearcher(player, gameState, searchParameters).getBestMove();
 
-        Output.printf("%nTurn %d: %s plays %s %c%c%c%c%n%n", turn + 1, getName(), move.card.name, 'a'+move.px, '5'-move.py, 'a'+move.nx, '5'-move.ny);
+        Output.printf("%nTurn %d: %s plays %s%n%n", turn + 1, getName(), move);
 
         return move;
     }
 
-    static class PonderUIThread extends Thread {
+    private static class PonderUIThread extends Thread {
         private final Ponderer ponderer;
 
-        public volatile boolean pondering = false;
+        private volatile boolean pondering = false;
 
-        public volatile boolean shutdown = false;
+        private volatile boolean shutdown = false;
 
-        PonderUIThread(Ponderer ponderer) {
+        private PonderUIThread(Ponderer ponderer) {
             this.ponderer = ponderer;
         }
 

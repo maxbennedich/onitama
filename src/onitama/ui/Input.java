@@ -18,7 +18,7 @@ public class Input {
         return players;
     }
 
-    static Player queryPlayer(int player) {
+    private static Player queryPlayer(int player) {
         while (true) {
             System.out.printf("Use AI for player %d (y/n): ", player + 1);
             try {
@@ -90,8 +90,7 @@ public class Input {
         }
     }
 
-    static boolean verifyRange(int n) {
+    private static boolean verifyRange(int n) {
         return n >= 0 && n < N;
     }
-
 }

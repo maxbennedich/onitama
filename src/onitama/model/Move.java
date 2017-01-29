@@ -1,8 +1,8 @@
 package onitama.model;
 
 public class Move {
-    public Card card;
-    public int px, py, nx, ny;
+    public final Card card;
+    final int px, py, nx, ny;
 
     public Move(Card card, int px, int py, int nx, int ny) {
         this.card = card;
@@ -24,8 +24,7 @@ public class Move {
         return getUniqueId();
     }
 
-    @Override
-    public boolean equals(Object obj) {
+    @Override public boolean equals(Object obj) {
         if (this == obj) return true;
         if (obj == null) return false;
         return getUniqueId() == ((Move)obj).getUniqueId();

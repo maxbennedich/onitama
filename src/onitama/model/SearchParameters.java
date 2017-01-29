@@ -1,9 +1,9 @@
 package onitama.model;
 
 public class SearchParameters {
-    public int ttBits;
-    public int maxDepth;
-    public int maxSearchTimeMs;
+    public final int ttBits;
+    public final int maxDepth;
+    public final int maxSearchTimeMs;
 
     public SearchParameters(int ttBits, int maxDepth, int maxSearchTimeMs) {
         this.ttBits = ttBits;

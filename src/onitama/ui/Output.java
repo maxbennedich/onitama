@@ -9,27 +9,27 @@ import onitama.model.GameDefinition;
 import onitama.model.GameState;
 
 public class Output {
-    static char[] markers = new char[] {' ', 'r', 'b', 'R', 'B'};
+    private static final char[] MARKERS = new char[] {' ', 'r', 'b', 'R', 'B'};
 
-    public enum OutputLevel {
+    public static enum OutputLevel {
         NONE, VERBOSE
     }
 
     public static OutputLevel outputLevel = OutputLevel.VERBOSE;
 
-    public static void println() {
+    static void println() {
         print("\n");
     }
 
-    public static void println(String string) {
+    static void println(String string) {
         print(string + "\n");
     }
 
-    public static void printf(String format, Object... args) {
+    static void printf(String format, Object... args) {
         print(String.format(format, args));
     }
 
-    public static void print(String string) {
+    static void print(String string) {
         if (outputLevel == OutputLevel.VERBOSE)
             System.out.print(string);
     }
@@ -44,7 +44,7 @@ public class Output {
                 else if ((bitboardKing[1] & bit) != 0) c = 4;
                 else if ((bitboardPlayer[0] & bit) != 0) c = 1;
                 else if ((bitboardPlayer[1] & bit) != 0) c = 2;
-                printf(" %c |", markers[c]);
+                printf(" %c |", MARKERS[c]);
             }
             println("\n  +---+---+---+---+---+");
         }
@@ -65,7 +65,7 @@ public class Output {
         println("Enter moves like 'Dragon a1b2'\n");
     }
 
-    public static void printCards(CardState cardState) {
+    static void printCards(CardState cardState) {
         for (int player = 0; player < 2; ++player) {
             printf("Player %d cards:", player + 1); // players[player].getName()
             for (int c = 0; c < GameDefinition.CARDS_PER_PLAYER; ++c)
@@ -75,7 +75,7 @@ public class Output {
         printf("%s card: %s%n", Onitama.EXTRA_CARD_NAME, cardState.nextCard.name);
     }
 
-    public static void printGameState(GameState gameState) {
+    static void printGameState(GameState gameState) {
         Searcher searcher = new Searcher(1, 0, 0, false);
         searcher.setState(0, gameState.board, gameState.cardState);
         searcher.printBoard();
@@ -83,5 +83,4 @@ public class Output {
         Output.printCards(gameState.cardState);
         println();
     }
-
 }

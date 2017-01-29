@@ -6,26 +6,20 @@ import onitama.model.Move;
 import onitama.model.Pair;
 
 public class SearchTask {
-    final Move moveTested;
-    int ttBits;
-    final int player;
-    final GameState gameState;
-
-    boolean done = false;
+    private final Move moveSearched;
 
     private Searcher searcher;
 
-    SearchTask(Move moveTested, int ttBits, int player, GameState gameState) {
-        this.moveTested = moveTested;
-        this.ttBits = ttBits;
-        this.player = player;
-        this.gameState = gameState;
+    volatile boolean done = false;
+
+    SearchTask(Move moveSearched, int ttBits, int player, GameState gameState) {
+        this.moveSearched = moveSearched;
 
         searcher = new Searcher(50, ttBits, Integer.MAX_VALUE, false);
         searcher.setState(player, gameState.board, gameState.cardState);
     }
 
-    public Move search() {
+    Move search() {
         searcher.start();
         searcher.releaseMemory();
         done = true;
@@ -37,18 +31,18 @@ public class SearchTask {
         int score = searcher.getScore();
         long states = searcher.stats.getStatesEvaluated();
         long qStates = searcher.stats.getQuiescenceStatesEvaluated();
-        return new Pair<>(score, String.format("%s: %d (%d plies, %d states)", moveTested, score, depth, states + qStates));
+        return new Pair<>(score, String.format("%s: %d (%d plies, %d states)", moveSearched, score, depth, states + qStates));
     }
 
-    public void resizeTT(int ttBits) {
+    void resizeTT(int ttBits) {
         searcher.resizeTTAsync(ttBits);
     }
 
-    public void stopSearch() {
+    void stopSearch() {
         searcher.stop();
     }
 
-    public void timeout(int remainingTimeMs) {
+    void timeout(int remainingTimeMs) {
         searcher.enableLog(true);
         searcher.setRelativeTimeout(remainingTimeMs);
     }

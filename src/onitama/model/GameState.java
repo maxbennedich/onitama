@@ -3,6 +3,7 @@ package onitama.model;
 import static onitama.model.GameDefinition.N;
 import static onitama.model.GameDefinition.NN;
 
+/** A more user friendly version of the {@link SearchState}, mainly used for the UI. */
 public class GameState {
     public String board;
     public CardState cardState;

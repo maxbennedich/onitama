@@ -8,8 +8,8 @@ public class GameSimulator {
     /** To prevent stuck games when AI plays itself. */
     public static final int MAX_PLIES_BEFORE_DRAW = 120;
 
-    Player[] players;
-    GameState gameState;
+    private final Player[] players;
+    private final GameState gameState;
 
     public GameSimulator(Player[] players, GameState gameState) {
         this.players = players;

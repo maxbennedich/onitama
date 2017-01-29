@@ -19,15 +19,15 @@ import onitama.model.Move;
 import onitama.model.Pair;
 
 public class Ponderer {
-    final int player;
-    final long maxPonderMemory;
+    private final int player;
+    private final long maxPonderMemory;
 
-    final ExecutorService searcherExecutor = Executors.newCachedThreadPool();
+    private final ExecutorService searcherExecutor = Executors.newCachedThreadPool();
 
-    final ScheduledExecutorService ttResizeExecutor = Executors.newScheduledThreadPool(1);
-    ScheduledFuture<?> ttResizeFuture = null;
-    volatile boolean ttResizing;
-    final Object TT_RESIZE_LOCK = new Object();
+    private final ScheduledExecutorService ttResizeExecutor = Executors.newScheduledThreadPool(1);
+    private ScheduledFuture<?> ttResizeFuture = null;
+    private volatile boolean ttResizing;
+    private final Object TT_RESIZE_LOCK = new Object();
 
     public Map<Move, Pair<SearchTask, Future<Move>>> searchTasks;
 
@@ -36,7 +36,7 @@ public class Ponderer {
         this.maxPonderMemory = maxPonderMemory;
     }
 
-    int getTTBits(int nrSearchThreads) {
+    private int getTTBits(int nrSearchThreads) {
         return 63 - Long.numberOfLeadingZeros(maxPonderMemory / nrSearchThreads / TranspositionTable.BYTES_PER_ENTRY);
     }
 
@@ -67,7 +67,7 @@ public class Ponderer {
      * Don't resize the TT immediately, wait for a few seconds to allow any other search tasks to complete. This avoids
      * repeatedly resizing the TT if several tasks end at about the same time.
      */
-    void submitTTResize() {
+    private void submitTTResize() {
         synchronized (TT_RESIZE_LOCK) {
             if (ttResizing) {
                 if (ttResizeFuture != null)
@@ -77,7 +77,7 @@ public class Ponderer {
         }
     }
 
-    void resizeTT() {
+    private void resizeTT() {
         int tasksAlive = 0;
         for (Pair<SearchTask, Future<Move>> p : searchTasks.values())
             tasksAlive += p.p.done ? 0 : 1;
@@ -105,7 +105,7 @@ public class Ponderer {
     }
 
     /** @returns Value from future, or null if any exception occurs. */
-    public <X> X getOrNull(Future<X> future) {
+    private static <X> X getOrNull(Future<X> future) {
         try {
             return future.get();
         } catch (InterruptedException | ExecutionException e) {

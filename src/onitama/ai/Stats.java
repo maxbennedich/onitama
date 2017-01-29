@@ -31,7 +31,7 @@ public class Stats {
 
     void resetDepthSeen() { maxDepthSearched = -1; }
     void depthSeen(int ply) { if (ply > maxDepthSearched) maxDepthSearched = ply; }
-    public int getMaxDepthSeen() { return maxDepthSearched + 1; }
+    int getMaxDepthSeen() { return maxDepthSearched + 1; }
 
     void stateEvaluated(int ply) { ++statesEvaluated; ++plyStats[ply].statesEvaluated; }
     void quiescenceStateEvaluated(int ply) { ++quiescenceStatesEvaluated; ++plyStats[ply].quiescenceStatesEvaluated; }
