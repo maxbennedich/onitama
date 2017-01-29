@@ -49,7 +49,7 @@ public class SearchTask {
     }
 
     public void timeout(int remainingTimeMs) {
-        searcher.log = true;
+        searcher.enableLog(true);
         searcher.setRelativeTimeout(remainingTimeMs);
     }
 }

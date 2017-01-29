@@ -81,36 +81,37 @@ public class Searcher {
     private static final int LOWER_BOUND = 1;
     private static final int UPPER_BOUND = 2;
 
-    public TranspositionTable tt;
+    private TranspositionTable tt;
 
     /** If this is not 0, the transposition table will be resized to this bit size at the earliest opportunity. */
     private volatile int requestedTTResizeBits = 0;
 
+    private final int initialTTBits;
+
     public final Stats stats;
     private final SearchTimer timer;
 
-    final int nominalDepth;
-    final int initialTTBits;
+    private final int nominalDepth;
 
-    public boolean log = true;
+    private boolean log = true;
 
-    int initialPlayer;
+    private int initialPlayer;
 
-    final SearchState state = new SearchState();
+    private final SearchState state = new SearchState();
 
     /** Triangular table of principal variations (best moves) for each ply. */
-    int[] pvTable = new int[MAX_DEPTH * (MAX_DEPTH + 1) / 2];
-    int[] pvLength = new int[MAX_DEPTH];
+    private int[] pvTable = new int[MAX_DEPTH * (MAX_DEPTH + 1) / 2];
+    private int[] pvLength = new int[MAX_DEPTH];
 
-    int pvScore = NO_SCORE;
-    int pvScoreDepth = -1;
+    private int pvScore = NO_SCORE;
+    private int pvScoreDepth = -1;
 
     /** History heuristic table, used for move ordering. */
-    public long[][][] historyTable = new long[2][NN][NN];
+    private long[][][] historyTable = new long[2][NN][NN];
 
-    MoveGenerator[] moveGenerator = new MoveGenerator[MAX_DEPTH];
+    private MoveGenerator[] moveGenerator = new MoveGenerator[MAX_DEPTH];
 
-    public int currentDepthSearched;
+    private int currentDepthSearched;
 
     public Searcher(int nominalDepth, int ttBits, long maxTimeMs, boolean log) {
         this.log = log;
@@ -140,7 +141,7 @@ public class Searcher {
         log(" depth    time  score  best moves");
 
         int score = NO_SCORE;
-        for (currentDepthSearched = 1; currentDepthSearched <= nominalDepth && Math.abs(score) != WIN_SCORE; ++currentDepthSearched) {
+        for (currentDepthSearched = 1; ; ++currentDepthSearched) {
             stats.resetDepthSeen();
 
             score = negamax(initialPlayer, currentDepthSearched, 0, 0, -INF_SCORE, INF_SCORE);
@@ -148,12 +149,15 @@ public class Searcher {
                 break;
 
             logMove(true, score);
+
+            if (currentDepthSearched == nominalDepth || Math.abs(score) == WIN_SCORE)
+                break;
         }
 
         return score;
     }
 
-    int negamax(int player, int depth, int ply, int pvIdx, int alpha, int beta) {
+    private int negamax(int player, int depth, int ply, int pvIdx, int alpha, int beta) {
         pvLength[ply] = 0; // default to no pv
 
         if (state.won(1-player))
@@ -265,7 +269,7 @@ public class Searcher {
         return bestScore;
     }
 
-    int quiesce(int player, int ply, int qd, int pvIdx, int alpha, int beta) {
+    private int quiesce(int player, int ply, int qd, int pvIdx, int alpha, int beta) {
         pvLength[ply] = 0; // default to no pv
 
         if (state.won(1-player))
@@ -314,13 +318,13 @@ public class Searcher {
 
     private static final int INVALID_MOVE_HASH = NN;
 
-    int getMoveHash(int player, MoveGenerator mg, int move) {
+    private int getMoveHash(int player, MoveGenerator mg, int move) {
         int cardUsed = state.firstCardLower(player) ? mg.cardUsed[move] : 1 - mg.cardUsed[move]; // 0 = lower card id, 1 = higher (card order may differ)
         return mg.oldPos[move] + (cardUsed << 5) + (mg.newPos[move] << 6);
     }
 
     /** @return Move at the given depth for the current principal variation. */
-    Move getPVMove(int depth) {
+    private Move getPVMove(int depth) {
         int cardId = pvTable[depth] & 15;
         int p = (pvTable[depth] >> 4) & 31;
         int n = pvTable[depth] >> 9;
@@ -342,22 +346,29 @@ public class Searcher {
         return pvScoreDepth;
     }
 
-    void log(String str) {
+    private void log(String str) {
         if (log)
             System.out.println(str);
     }
 
-    void logMove(boolean depthComplete, int score) {
+    private void logf(String format, Object ... args) {
+        if (log) {
+            System.out.printf(format, args);
+            System.out.println();
+        }
+    }
+
+    private void logMove(boolean depthComplete, int score) {
         if (!log) return;
 
         double time = timer.elapsedTimeMs() / 1000.0;
         if (!depthComplete && time < 1)
             return;
 
-        log(getMoveString(depthComplete, score));
+        log(getPrincipalVariationMoveString(depthComplete, score));
     }
 
-    public String getMoveString(boolean depthComplete, int score) {
+    public String getPrincipalVariationMoveString(boolean depthComplete, int score) {
         double time = timer.elapsedTimeMs() / 1000.0;
 
         String timeStr = String.format(time < 10 ? "%7.2f" : "%5.0f s", time);
@@ -369,11 +380,6 @@ public class Searcher {
         }
 
         return String.format("%2d/%2d%2s%s%6d   %s", currentDepthSearched, stats.getMaxDepthSeen(), depthComplete ? "->" : "  ", timeStr, score, pvSb);
-    }
-
-    /** Releases the majority of memory held by this instance (such as the TT). Moves and non-TT related statistics is still available after this call. */
-    public void releaseMemory() {
-        tt = new TranspositionTable(1);
     }
 
     /**
@@ -399,12 +405,25 @@ public class Searcher {
         timer.setRelativeTimeout(remainingTimeMs);
     }
 
+    /** Releases the majority of memory held by this instance (such as the TT). Moves and non-TT related statistics is still available after this call. */
+    public void releaseMemory() {
+        tt = new TranspositionTable(1);
+    }
+
     /**
      * Issues a resize request to the transposition table and returns immediately. The resize will typically happen within a few milliseconds.
      * This is a no-op if the new size is the same as the current size.
      */
     public void resizeTTAsync(int ttBits) {
         requestedTTResizeBits = ttBits;
+    }
+
+    public void logTTSize() {
+        logf("Transposition table size: %d entries (%.0f MB)", tt.sizeEntries(), tt.sizeBytes() / 1024.0 / 1024.0);
+    }
+
+    public void enableLog(boolean enabled) {
+        this.log = enabled;
     }
 
     public void printBoard() {

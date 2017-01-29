@@ -105,8 +105,7 @@ public class EndgameSearcher {
                     long time = System.currentTimeMillis();
 
                     int score = searcher.start();
-                    --searcher.currentDepthSearched;
-                    String move = searcher.getMoveString(true, score);
+                    String move = searcher.getPrincipalVariationMoveString(true, score);
 
                     time = System.currentTimeMillis() - time;
 
@@ -173,8 +172,7 @@ public class EndgameSearcher {
                     long time = System.currentTimeMillis();
 
                     int score = searcher.start();
-                    --searcher.currentDepthSearched;
-                    String move = searcher.getMoveString(true, score);
+                    String move = searcher.getPrincipalVariationMoveString(true, score);
 
                     time = System.currentTimeMillis() - time;
 

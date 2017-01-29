@@ -72,7 +72,7 @@ public class TestSingleSearch {
         time = System.currentTimeMillis() - time;
 
         System.out.println();
-        System.out.printf("Transposition table size: %d entries (%.0f MB)%n", searcher.tt.sizeEntries(), searcher.tt.sizeBytes() / 1024.0 / 1024.0);
+        searcher.logTTSize();
         searcher.stats.print();
 
         System.out.printf("%nElapsed time: %d ms%n", time);

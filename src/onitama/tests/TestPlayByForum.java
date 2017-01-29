@@ -110,7 +110,7 @@ public class TestPlayByForum {
 //        searcher.setState(PLAYER_0, PBF8, new Card[][] {{Card.Dragon, Card.Sheep}, {Card.Tiger, Card.Rabbit}}, Card.Boar);
 //        searcher.setState(PLAYER_1, PBF9, new Card[][] {{Card.Dragon, Card.Boar}, {Card.Tiger, Card.Rabbit}}, Card.Sheep);
 
-        System.out.printf("Transposition table size: %d entries (%.0f MB)%n", searcher.tt.sizeEntries(), searcher.tt.sizeBytes() / 1024.0 / 1024.0);
+        searcher.logTTSize();
 
         searcher.printBoard();
 
