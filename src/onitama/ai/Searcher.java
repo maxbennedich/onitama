@@ -65,6 +65,9 @@ import onitama.ui.Output;
  *   played by the opponent 50+% of the times ("ponder hit rate"). For this project, I have a assumed a much lower ponder hit rate, so instead a
  *   separate search is started for every possible opponent move, and once the opponent moves, all irrelevant search threads are killed. This
  *   feature uses dynamic TT resizing to make efficient use of the available memory.
+ * - Parallelization through multiple identical search threads started at the same time with a shared TT: Scaled quite bad, with a speedup of
+ *   around 1.2 - 1.25 with 2 - 3 threads (on a 2x4 core system), with no TT locking at all. The number of nodes visited was 60-70% of the single
+ *   threaded search.
  *
  * Future ideas:
  * - Compress TT better
