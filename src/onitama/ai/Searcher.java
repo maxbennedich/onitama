@@ -61,10 +61,10 @@ import onitama.ui.Output;
  *   quite well (at least with a two-tiered TT); a search with a small TT that is later adjusted to a larger size, does not seem to suffer in the
  *   long run from initially having started out small. One use case for this feature is to start many searches simultaneously with small TTs, and
  *   increasing the size gradually as some searches finish and there are fewer remaining.
- * - Pondering. Most literature recommends a single search pondering just the expected opponent move, assuming that this move will actually be played
- *   by the opponent 50+% of the times ("ponder hit rate"). For this project, I have a assumed a much lower ponder hit rate, so instead a separate
- *   search is started for every possible opponent move, and once the opponent moves, all irrelevant search threads are killed. This feature uses
- *   dynamic TT resizing to make efficient use of the available memory.
+ * - Pondering. Most literature recommends a single search pondering just the most probable opponent move, assuming that this move will actually be
+ *   played by the opponent 50+% of the times ("ponder hit rate"). For this project, I have a assumed a much lower ponder hit rate, so instead a
+ *   separate search is started for every possible opponent move, and once the opponent moves, all irrelevant search threads are killed. This
+ *   feature uses dynamic TT resizing to make efficient use of the available memory.
  *
  * Future ideas:
  * - Compress TT better
@@ -86,7 +86,7 @@ public class Searcher {
     /** If this is not 0, the transposition table will be resized to this bit size at the earliest opportunity. */
     private volatile int requestedTTResizeBits = 0;
 
-    private final int initialTTBits;
+    private int initialTTBits;
 
     public final Stats stats;
     private final SearchTimer timer;
@@ -411,10 +411,11 @@ public class Searcher {
 
     /**
      * Issues a resize request to the transposition table and returns immediately. The resize will typically happen within a few milliseconds.
-     * This is a no-op if the new size is the same as the current size.
+     * This is a no-op if the new size is the same as the current size. If the searcher has not yet started searching, this is the size that
+     * its TT will be given once the search starts.
      */
     public void resizeTTAsync(int ttBits) {
-        requestedTTResizeBits = ttBits;
+        initialTTBits = requestedTTResizeBits = ttBits;
     }
 
     public void logTTSize() {

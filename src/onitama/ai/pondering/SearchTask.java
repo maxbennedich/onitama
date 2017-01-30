@@ -10,8 +10,6 @@ public class SearchTask {
 
     private Searcher searcher;
 
-    volatile boolean done = false;
-
     SearchTask(Move moveSearched, int ttBits, int player, GameState gameState) {
         this.moveSearched = moveSearched;
 
@@ -22,7 +20,6 @@ public class SearchTask {
     Move search() {
         searcher.start();
         searcher.releaseMemory();
-        done = true;
         return searcher.getBestMove();
     }
 

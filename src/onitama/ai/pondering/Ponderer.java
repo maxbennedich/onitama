@@ -2,7 +2,6 @@ package onitama.ai.pondering;
 
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
@@ -18,6 +17,15 @@ import onitama.model.GameState;
 import onitama.model.Move;
 import onitama.model.Pair;
 
+/**
+ * Class that allows an AI player to ponder, i.e. consider next moves before the opponent's move is known.
+ * <p>
+ * Most literature recommends a single search, pondering just the most probable opponent move, assuming that this move will actually be played
+ * by the opponent 50+% of the times ("ponder hit rate"). For this project, I have a assumed a much lower ponder hit rate, so instead a separate
+ * search is started for every possible opponent move, and once the opponent moves, all irrelevant search threads are killed. This feature uses
+ * dynamic TT resizing to make efficient use of the available memory; as search threads terminate, any remaining search threads can be assigned
+ * more memory.
+ */
 public class Ponderer {
     private final int player;
     private final long maxPonderMemory;
@@ -26,10 +34,12 @@ public class Ponderer {
 
     private final ScheduledExecutorService ttResizeExecutor = Executors.newScheduledThreadPool(1);
     private ScheduledFuture<?> ttResizeFuture = null;
+    private volatile int ttBits;
     private volatile boolean ttResizing;
     private final Object TT_RESIZE_LOCK = new Object();
 
     public Map<Move, Pair<SearchTask, Future<Move>>> searchTasks;
+    private volatile int tasksRemaining;
 
     public Ponderer(int player, long maxPonderMemory) {
         this.player = player;
@@ -41,26 +51,27 @@ public class Ponderer {
     }
 
     public void ponder(GameState gameState) {
-        searchTasks = new ConcurrentHashMap<>();
-
         List<Pair<Move, GameState>> movesToSearch = AIUtils.getPossibleMoves(1 - player, gameState);
 
-        if (movesToSearch.isEmpty())
+        tasksRemaining = movesToSearch.size();
+        searchTasks = new ConcurrentHashMap<>(tasksRemaining);
+
+        if (tasksRemaining == 0)
             return; // no moves available
 
-        int ttBits = getTTBits(movesToSearch.size());
+        ttBits = getTTBits(tasksRemaining);
         ttResizing = true;
 
-        // ensure that all search tasks exist before any task is started
-        for (Pair<Move, GameState> move : movesToSearch)
-            searchTasks.put(move.p, new Pair<SearchTask, Future<Move>>(new SearchTask(move.p, ttBits, player, move.q), null));
-
-        for (Entry<Move, Pair<SearchTask, Future<Move>>> entry : searchTasks.entrySet())
-            entry.getValue().q = searcherExecutor.submit(() -> {
-                Move move = entry.getValue().p.search();
+        for (Pair<Move, GameState> moveAndState : movesToSearch) {
+            SearchTask task = new SearchTask(moveAndState.p, ttBits, player, moveAndState.q);
+            Future<Move> future = searcherExecutor.submit(() -> {
+                Move move = task.search();
+                --tasksRemaining;
                 submitTTResize();
                 return move;
             });
+            searchTasks.put(moveAndState.p, new Pair<>(task, future));
+        }
     }
 
     /**
@@ -77,15 +88,14 @@ public class Ponderer {
         }
     }
 
+    // In theory, this method can be called before all search tasks have been created, or after a search task has been
+    // created but before its search has started. Both of these situations are handled "correctly" by making sure that
+    // the unstarted tasks will get the new TT size.
     private void resizeTT() {
-        int tasksAlive = 0;
-        for (Pair<SearchTask, Future<Move>> p : searchTasks.values())
-            tasksAlive += p.p.done ? 0 : 1;
-
-        int newTTBits = getTTBits(tasksAlive);
+        ttBits = getTTBits(tasksRemaining);
 
         for (Pair<SearchTask, Future<Move>> p : searchTasks.values())
-            p.p.resizeTT(newTTBits);
+            p.p.resizeTT(ttBits);
     }
 
     private void stopTTResizing() {
