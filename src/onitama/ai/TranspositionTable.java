@@ -64,6 +64,14 @@ public class TranspositionTable {
         return (long)sizeEntries() * BYTES_PER_ENTRY;
     }
 
+    void resizeBlocking(int newTTBits) {
+        for (long millis = 1; !resize(newTTBits); millis *= 2) {
+            try {
+                Thread.sleep(millis);
+            } catch (InterruptedException e) { /* ignore */ }
+        }
+    }
+
     /**
      * Attempts to change the size of this table, carrying over all stored entries. This is a no-op if the new size is the same as the current size.
      * @return False if another thread is currently doing a resize (two resizes can not run at the same time). Otherwise true.

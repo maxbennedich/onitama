@@ -136,7 +136,7 @@ public class Searcher {
     }
 
     public int start() {
-        tt.resize(initialTTBits);
+        tt.resizeBlocking(initialTTBits);
 
         timer.reset();
 
