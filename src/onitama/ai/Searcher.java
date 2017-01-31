@@ -183,8 +183,7 @@ public class Searcher {
 
         if (seenState != TranspositionTable.NO_ENTRY) {
             int seenDepth = (seenState >> 2) & 63;
-            int seenScore = (seenState >> 8) & 1023;
-            if (seenScore >= 512) seenScore |= ~1023; // to support negative numbers
+            int seenScore = (seenState << 14) >> 22; // bits 8-17 with sign extension, supports range -512..511
             if (seenDepth >= depth || seenScore == WIN_SCORE || seenScore == -WIN_SCORE) {
                 // we've visited this exact state before, at the same or earlier move, so we know the score or its bound
                 stats.ttHit(ply);
