@@ -1,6 +1,7 @@
 package onitama.tests;
 
 import onitama.ai.Searcher;
+import onitama.common.Utils;
 import onitama.model.Card;
 import onitama.model.CardState;
 
@@ -722,7 +723,7 @@ public class TestSearchDepthPerformance {
         for (int depth = 1; depth <= 11; ++depth) {
             for (int board = 0; board < 3; ++board) {
                 for (int cards = 0; cards < 2; ++cards) {
-                    Searcher searcher = new Searcher(depth, 26, Integer.MAX_VALUE, false);
+                    Searcher searcher = new Searcher(depth, 26, Integer.MAX_VALUE, true, Utils.NO_LOGGER, false);
 
                     searcher.setState(0, BOARDS[board], cards == 0 ?
                             new CardState(new Card[][] {{Card.Monkey, Card.Crane}, {Card.Tiger, Card.Crab}}, Card.Dragon) :

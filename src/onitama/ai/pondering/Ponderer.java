@@ -9,10 +9,12 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 
 import onitama.ai.AIUtils;
 import onitama.ai.TranspositionTable;
+import onitama.common.ILogger;
 import onitama.model.GameState;
 import onitama.model.Move;
 import onitama.model.Pair;
@@ -29,21 +31,34 @@ import onitama.model.Pair;
 public class Ponderer {
     private final int player;
     private final long maxPonderMemory;
+    private final ILogger logger;
 
-    private final ExecutorService searcherExecutor = Executors.newCachedThreadPool();
+    /** Factory which creates daemon threads, allowing the application to exit even if these threads are alive. */
+    private static final ThreadFactory DAEMON_THREAD_FACTORY = new ThreadFactory() {
+        @Override public Thread newThread(Runnable runnable) {
+            Thread thread = Executors.defaultThreadFactory().newThread(runnable);
+            thread.setDaemon(true);
+            return thread;
+        }
+    };
 
-    private final ScheduledExecutorService ttResizeExecutor = Executors.newScheduledThreadPool(1);
+    private final ExecutorService searcherExecutor = Executors.newCachedThreadPool(DAEMON_THREAD_FACTORY);
+
+    private final ScheduledExecutorService ttResizeExecutor = Executors.newScheduledThreadPool(1, DAEMON_THREAD_FACTORY);
     private ScheduledFuture<?> ttResizeFuture = null;
     private volatile int ttBits;
     private volatile boolean ttResizing;
     private final Object TT_RESIZE_LOCK = new Object();
 
-    public Map<Move, Pair<SearchTask, Future<Move>>> searchTasks;
+    public Map<Move, Pair<PonderSearchTask, Future<Move>>> searchTasks = new ConcurrentHashMap<>(0);
     private volatile int tasksRemaining;
 
-    public Ponderer(int player, long maxPonderMemory) {
+    private Pair<PonderSearchTask, Future<Move>> searchToKeep;
+
+    public Ponderer(int player, long maxPonderMemory, ILogger logger) {
         this.player = player;
         this.maxPonderMemory = maxPonderMemory;
+        this.logger = logger;
     }
 
     private int getTTBits(int nrSearchThreads) {
@@ -63,7 +78,7 @@ public class Ponderer {
         ttResizing = true;
 
         for (Pair<Move, GameState> moveAndState : movesToSearch) {
-            SearchTask task = new SearchTask(moveAndState.p, ttBits, player, moveAndState.q);
+            PonderSearchTask task = new PonderSearchTask(moveAndState.p, ttBits, player, moveAndState.q, logger);
             Future<Move> future = searcherExecutor.submit(() -> {
                 Move move = task.search();
                 --tasksRemaining;
@@ -94,7 +109,7 @@ public class Ponderer {
     private void resizeTT() {
         ttBits = getTTBits(tasksRemaining);
 
-        for (Pair<SearchTask, Future<Move>> p : searchTasks.values())
+        for (Pair<PonderSearchTask, Future<Move>> p : searchTasks.values())
             p.p.resizeTT(ttBits);
     }
 
@@ -111,6 +126,13 @@ public class Ponderer {
         ttResizeExecutor.shutdown();
 
         searchTasks.values().forEach(e -> e.p.stopSearch());
+        searchTasks.values().forEach(e -> getOrNull(e.q));
+
+        if (searchToKeep != null) {
+            searchToKeep.p.stopSearch();
+            getOrNull(searchToKeep.q);
+        }
+
         searcherExecutor.shutdown();
     }
 
@@ -127,7 +149,7 @@ public class Ponderer {
     public Move getBestMove(Move opponentMove, int remainingTimeMs) {
         stopTTResizing();
 
-        Pair<SearchTask, Future<Move>> searchToKeep = searchTasks.remove(opponentMove);
+        searchToKeep = searchTasks.remove(opponentMove);
 
         // request all threads except for the actual opponent move to stop, and then wait for them to shut down
         searchTasks.values().forEach(e -> e.p.stopSearch());

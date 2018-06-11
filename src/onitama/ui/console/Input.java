@@ -1,14 +1,17 @@
-package onitama.ui;
+package onitama.ui.console;
 
 import static onitama.model.GameDefinition.N;
 
 import java.util.Scanner;
 
+import onitama.ai.Searcher;
 import onitama.model.Card;
 import onitama.model.CardState;
 import onitama.model.GameDefinition;
 import onitama.model.Move;
 import onitama.model.SearchParameters;
+import onitama.ui.AIPlayer;
+import onitama.ui.Player;
 
 public class Input {
     static Player[] queryPlayers() {
@@ -24,7 +27,7 @@ public class Input {
             try {
                 @SuppressWarnings("resource") // don't close System.in
                 String response = new Scanner(System.in).next();
-                return response.equals("y") ? new AIPlayer(player, new SearchParameters(26, 50, 10000), true) : new HumanPlayer(player);
+                return response.equals("y") ? new AIPlayer(player, new SearchParameters(26, Searcher.MAX_DEPTH, 10000), true, UIUtils.CONSOLE_LOGGER) : new HumanPlayer(player, UIUtils.CONSOLE_LOGGER);
             } catch (Exception e) {
                 System.out.println("Invalid input, try again");
             }
@@ -37,7 +40,7 @@ public class Input {
             for (int player = 0; player < 2; ++player)
                 for (int c = 0; c < GameDefinition.CARDS_PER_PLAYER; ++c)
                     System.out.printf("P%d, ", player + 1);
-            System.out.print(Onitama.EXTRA_CARD_NAME + "): ");
+            System.out.print(ConsoleGame.EXTRA_CARD_NAME + "): ");
 
             @SuppressWarnings("resource") // don't close System.in
             String cardsStr = new Scanner(System.in).nextLine();

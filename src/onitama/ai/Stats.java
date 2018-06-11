@@ -1,5 +1,7 @@
 package onitama.ai;
 
+import onitama.common.Utils;
+
 public class Stats {
     private static class PlyStats {
         long ttLookups = 0;
@@ -90,5 +92,19 @@ public class Stats {
             sumLookups += plyStats[ply].bestMoveLookups;
         }
         System.out.printf("Quiescence branching factor: %s%n", stats);
+    }
+
+    public String getCompactStats() {
+        String ttStats = "";
+
+        if (tt != null) {
+            ttStats = String.format(" | Hash: %s (%.1f %% full)",
+                    tt.sizeFormatted(),
+                    100.0*tt.usedEntries()/tt.sizeEntries());
+        }
+
+        return String.format("Positions evaluated: %s%s",
+                Utils.formatNumber(statesEvaluated + quiescenceStatesEvaluated),
+                ttStats);
     }
 }

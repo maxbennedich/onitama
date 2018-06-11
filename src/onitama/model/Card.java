@@ -3,6 +3,8 @@ package onitama.model;
 import static onitama.model.GameDefinition.N;
 import static onitama.model.GameDefinition.NN;
 
+import java.util.function.Supplier;
+
 public class Card {
     private static int cardId = 0;
 
@@ -57,6 +59,21 @@ public class Card {
                 moveBitmask[player][p] = bitmask;
             }
         }
+    }
+
+    public String getFixedWidthName() {
+        return String.format("%-" + getMaxCardNameLength() + "s", name);
+    }
+
+    private static Supplier<Integer> maxCardNameLength = () -> {
+        int maxLength = -1;
+        for (Card card : CARDS)
+            maxLength = Math.max(maxLength, card.name.length());
+        return maxLength;
+    };
+
+    public static int getMaxCardNameLength() {
+        return maxCardNameLength.get();
     }
 
     /** @return The card with the given name (case insensitive), or null if none is found. Warning: inefficient since it loops over all cards. */

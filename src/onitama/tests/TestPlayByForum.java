@@ -1,6 +1,8 @@
 package onitama.tests;
 
 import onitama.ai.Searcher;
+import onitama.ui.console.Output;
+import onitama.ui.console.UIUtils;
 
 public class TestPlayByForum {
     static final int TT_BITS = 28; // log of nr of entries; 24 => 192 MB, 26 => 768 MB, 28 => 3 GB
@@ -80,7 +82,7 @@ public class TestPlayByForum {
             "..#.x";
 
     public static void main(String ... args) throws Exception {
-        Searcher searcher = new Searcher(MAX_DEPTH, TT_BITS, Integer.MAX_VALUE, true);
+        Searcher searcher = new Searcher(MAX_DEPTH, TT_BITS, Integer.MAX_VALUE, true, UIUtils.CONSOLE_LOGGER, true);
 
         // new cards:
 //        public static Card Tiger = new Card("Tiger", new int[] {0,-2});
@@ -112,7 +114,7 @@ public class TestPlayByForum {
 
         searcher.logTTSize();
 
-        searcher.printBoard();
+        Output.printBoard(searcher);
 
         long time = System.currentTimeMillis();
 

@@ -1,12 +1,14 @@
-package onitama.ui;
+package onitama.ui.console;
 
 import static onitama.model.GameDefinition.N;
 
 import onitama.ai.Searcher;
+import onitama.common.Utils;
 import onitama.model.Card;
 import onitama.model.CardState;
 import onitama.model.GameDefinition;
 import onitama.model.GameState;
+import onitama.model.Pair;
 
 public class Output {
     private static final char[] MARKERS = new char[] {' ', 'r', 'b', 'R', 'B'};
@@ -34,7 +36,7 @@ public class Output {
             System.out.print(string);
     }
 
-    public static void printBoard(int[] bitboardPlayer, int[] bitboardKing) {
+    static void printBoard(int[] bitboardPlayer, int[] bitboardKing) {
         println("  +---+---+---+---+---+");
         for (int y = 0, bit = 1; y < N; ++y) {
             printf("%d |", N-y);
@@ -72,13 +74,18 @@ public class Output {
                 printf(" %s", cardState.playerCards[player][c].name);
             println();
         }
-        printf("%s card: %s%n", Onitama.EXTRA_CARD_NAME, cardState.nextCard.name);
+        printf("%s card: %s%n", ConsoleGame.EXTRA_CARD_NAME, cardState.nextCard.name);
+    }
+
+    public static void printBoard(Searcher searcher) {
+        Pair<int[], int[]> bitboards = searcher.getBitboardsForPrinting();
+        printBoard(bitboards.p, bitboards.q);
     }
 
     static void printGameState(GameState gameState) {
-        Searcher searcher = new Searcher(1, 0, 0, false);
+        Searcher searcher = new Searcher(1, 0, 0, false, Utils.NO_LOGGER, false);
         searcher.setState(0, gameState.board, gameState.cardState);
-        searcher.printBoard();
+        printBoard(searcher);
         println();
         Output.printCards(gameState.cardState);
         println();

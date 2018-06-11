@@ -1,0 +1,150 @@
+package onitama.ui.gui.configdialog;
+
+import java.util.Arrays;
+
+import onitama.ai.Searcher;
+import onitama.ai.TranspositionTable;
+import onitama.model.Card;
+import onitama.model.CardState;
+import onitama.model.GameState;
+import onitama.model.SearchParameters;
+import onitama.ui.gui.GuiUtils;
+
+/**
+ * Represents the raw configuration from the game configuration dialog, without references to GUI elements.
+ * Can be used for persisting the configuration.
+ * The reason that this class exists in addition to {@link GameConfig}, is that {@link GameConfig} only
+ * contains the config needed for the game (e.g. not the contents of disabled text fields), whereas this
+ * class contains every setting represented in the dialog.
+ */
+class DialogConfig {
+    boolean[] isAI = new boolean[2];
+    boolean[] timeBox = new boolean[2];
+    boolean[] depthBox = new boolean[2];
+    boolean[] ponderBox = new boolean[2];
+    String[] timeField = new String[2];
+    String[] depthField = new String[2];
+    int[] playerByCard = new int[Card.NR_CARDS];
+
+    static final DialogConfig DEFAULT_CONFIG = new DialogConfig();
+
+    /** Creates an instance with default settings. */
+    private DialogConfig() {
+        isAI[0] = false;
+        isAI[1] = true;
+
+        for (int p = 0; p < 2; ++p) {
+            timeBox[p] = true;
+            timeField[p] = "1000";
+            depthBox[p] = false;
+            depthField[p] = "12";
+            ponderBox[p] = false;
+        }
+
+        Arrays.fill(playerByCard, -1); // no card selection
+    }
+
+    /** Creates an instance from the settings in the supplied {@link GameConfigDialog}. No validation takes place at this point. */
+    DialogConfig(GameConfigDialog dialog) {
+        for (int p = 0; p < 2; ++p) {
+            isAI[p] = dialog.playerConfig[p].ai.isSelected();
+            timeBox[p] = dialog.playerConfig[p].timeBox.isSelected();
+            timeField[p] = dialog.playerConfig[p].timeField.getText();
+            depthBox[p] = dialog.playerConfig[p].depthBox.isSelected();
+            depthField[p] = dialog.playerConfig[p].depthField.getText();
+            ponderBox[p] = dialog.playerConfig[p].ponderBox.isSelected();
+        }
+
+        System.arraycopy(dialog.cardSelection.playerByCard, 0, playerByCard, 0, playerByCard.length);
+    }
+
+    /** Populates the supplied {@link GameConfigDialog} with the settings in this instance. */
+    void populateDialog(GameConfigDialog dialog) {
+        for (int p = 0; p < 2; ++p) {
+            dialog.playerConfig[p].ai.setSelected(isAI[p]);
+            dialog.playerConfig[p].timeBox.setSelected(timeBox[p]);
+            dialog.playerConfig[p].timeField.setText(timeField[p]);
+            dialog.playerConfig[p].depthBox.setSelected(depthBox[p]);
+            dialog.playerConfig[p].depthField.setText(depthField[p]);
+            dialog.playerConfig[p].ponderBox.setSelected(ponderBox[p]);
+
+            (isAI[p] ? dialog.playerConfig[p].ai : dialog.playerConfig[p].human).setSelected(true);
+            dialog.playerConfig[p].disableAIConfig(!isAI[p]);
+        }
+
+        for (int card = 0; card < playerByCard.length; ++card)
+            if (playerByCard[card] >= 0)
+                dialog.cardSelection.select(playerByCard[card], card);
+    }
+
+    /** Parses and validates the settings in this instance, and returns a valid {@link GameConfig}. */
+    GameConfig getGameConfig() {
+        GameConfig gameConfig = new GameConfig();
+
+        try {
+            for (int p = 0; p < 2; ++p) {
+                if (gameConfig.isAI[p] = isAI[p]) {
+                    gameConfig.searchParameters[p] = getSearchParameters(p);
+                    gameConfig.ponder[p] = ponderBox[p];
+                }
+            }
+
+            gameConfig.gameState = new GameState(getCardState());
+        } catch (InvalidConfigException ice) {
+            GuiUtils.errorAlert(ice.getMessage());
+            return null;
+        }
+
+        return gameConfig;
+    }
+
+    private SearchParameters getSearchParameters(int player) throws InvalidConfigException {
+        if (!timeBox[player] && !depthBox[player])
+            throw new InvalidConfigException("Either search time or search depth must be selected");
+
+        int maxSearchTimeMs = timeBox[player] ? validate(timeField[player], 0, Integer.MAX_VALUE, "Invalid search time") : Integer.MAX_VALUE;
+        int maxDepth = depthBox[player] ? validate(depthField[player], 1, Searcher.MAX_DEPTH, "Invalid search depth") : Searcher.MAX_DEPTH;
+        int ttSize = TranspositionTable.getSuggestedSize(maxDepth, maxSearchTimeMs);
+
+        return new SearchParameters(ttSize, maxDepth, maxSearchTimeMs);
+    }
+
+    private int validate(String text, int min, int max, String failMsg) throws InvalidConfigException {
+        Integer v = null;
+        try {
+            v = Integer.parseInt(text);
+        } catch (NumberFormatException nfe) { }
+
+        if (v == null || v < min || v > max)
+            throw new InvalidConfigException(failMsg + ": " + text);
+
+        return v;
+    }
+
+    private CardState getCardState() throws InvalidConfigException {
+        Card[][] playerCards = new Card[2][2];
+        int[] cardCount = { 0, 0 };
+        Card nextCard = null;
+
+        for (int c = 0; c < playerByCard.length; ++c) {
+            int player = playerByCard[c];
+            if (player == 2)
+                nextCard = Card.CARDS[c];
+            else if (player >= 0)
+                playerCards[player][cardCount[player]++] = Card.CARDS[c];
+        }
+
+        // if no cards selected, return random cards
+        if (nextCard == null && cardCount[0] == 0 && cardCount[1] == 0)
+            return CardState.Random();
+
+        for (int p = 0; p < 2; ++p)
+            if (cardCount[p] != 2)
+                throw new InvalidConfigException("Select 2 cards for " + GuiUtils.PLAYER_COLOR[p].toLowerCase() + " player");
+
+        if (nextCard == null)
+            throw new InvalidConfigException("Select an extra card");
+
+        return new CardState(playerCards, nextCard);
+    }
+}

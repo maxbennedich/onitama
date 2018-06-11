@@ -1,13 +1,11 @@
-package onitama.ui;
+package onitama.ui.console;
 
 import onitama.model.GameState;
 import onitama.model.Move;
 import onitama.model.Pair;
+import onitama.ui.Player;
 
 public class GameSimulator {
-    /** To prevent stuck games when AI plays itself. */
-    public static final int MAX_PLIES_BEFORE_DRAW = 120;
-
     private final Player[] players;
     private final GameState gameState;
 
@@ -20,7 +18,7 @@ public class GameSimulator {
     public Pair<Integer, Integer> play() {
         Move prevMove = null;
         int playerWon = -1, ply;
-        for (ply = 0; (playerWon = gameState.playerWon()) == -1 && ply < MAX_PLIES_BEFORE_DRAW;) {
+        for (ply = 0; (playerWon = gameState.playerWon()) == -1 && !gameState.isDraw();) {
             Output.printGameState(gameState);
 
             int player = ply & 1;

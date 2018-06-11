@@ -4,29 +4,20 @@ import static onitama.model.GameDefinition.NN;
 
 import java.util.List;
 
+import onitama.common.Utils;
 import onitama.model.Card;
 import onitama.model.CardState;
 import onitama.model.GameState;
 import onitama.model.Move;
 import onitama.model.Pair;
-import onitama.model.SearchParameters;
 
 public class AIUtils {
 
     public static List<Pair<Move, GameState>> getPossibleMoves(int player, GameState gameState) {
         // create a dummy searcher to extract the list of possible moves
-        Searcher searcher = new Searcher(50, 1, 0, false);
+        Searcher searcher = new Searcher(Searcher.MAX_DEPTH, 1, 0, false, Utils.NO_LOGGER, false);
         searcher.setState(player, gameState.board, gameState.cardState);
         return searcher.getAllMoves();
-    }
-
-    public static Searcher startNewSearcher(int player, GameState gameState, SearchParameters searchParameters) {
-        Searcher searcher = new Searcher(searchParameters.maxDepth, searchParameters.ttBits, searchParameters.maxSearchTimeMs, true);
-        searcher.setState(player, gameState.board, gameState.cardState);
-
-        searcher.start();
-
-        return searcher;
     }
 
     public static GameState getGameState(SearchState state) {
@@ -51,5 +42,4 @@ public class AIUtils {
     private static CardState getCardState(int cardBits) {
         return new CardState(new Card[][] {{Card.CARDS[(cardBits>>4)&15], Card.CARDS[(cardBits>>8)&15]}, {Card.CARDS[(cardBits>>12)&15], Card.CARDS[(cardBits>>16)&15]}}, Card.CARDS[cardBits&15]);
     }
-
 }

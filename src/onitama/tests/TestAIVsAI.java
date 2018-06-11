@@ -10,16 +10,18 @@ import java.util.Map.Entry;
 import java.util.Random;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import onitama.ai.Searcher;
+import onitama.common.Utils;
 import onitama.model.Card;
 import onitama.model.CardState;
 import onitama.model.GameState;
 import onitama.model.Pair;
 import onitama.model.SearchParameters;
 import onitama.ui.AIPlayer;
-import onitama.ui.GameSimulator;
-import onitama.ui.Output;
-import onitama.ui.Output.OutputLevel;
 import onitama.ui.Player;
+import onitama.ui.console.GameSimulator;
+import onitama.ui.console.Output;
+import onitama.ui.console.Output.OutputLevel;
 
 public class TestAIVsAI {
     static final int THREADS = 2;
@@ -51,12 +53,12 @@ public class TestAIVsAI {
 //        }
 
         for (int i = 0; i < 2; ++i)
-            players[i] = new AIPlayer(i, new SearchParameters(16, 50, 30+i), false);
+            players[i] = new AIPlayer(i, new SearchParameters(16, Searcher.MAX_DEPTH, 30+i), false, Utils.NO_LOGGER);
 
         runTest(100);
 
         for (int i = 0; i < 2; ++i)
-            players[i] = new AIPlayer(i, new SearchParameters(16, 50, 31-i), false);
+            players[i] = new AIPlayer(i, new SearchParameters(16, Searcher.MAX_DEPTH, 31-i), false, Utils.NO_LOGGER);
 
         runTest(100);
     }

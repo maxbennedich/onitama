@@ -18,12 +18,12 @@ class SearchTimer {
     /** Check for time-out every this number of states, to prevent calling System.currentTimeMillis() for every node. */
     private final long timeoutCheckFrequency;
 
-    private long nextTimeoutCheckCount;
+    private long nextTimeoutCheckStateCount;
 
     /** @param timeoutCheckFrequency See {@link #timeoutCheckFrequency} */
     SearchTimer(long maxTimeMs, long timeoutCheckFrequency) {
         this.maxTimeMs = maxTimeMs;
-        this.nextTimeoutCheckCount = this.timeoutCheckFrequency = timeoutCheckFrequency;
+        this.nextTimeoutCheckStateCount = this.timeoutCheckFrequency = timeoutCheckFrequency;
         reset();
     }
 
@@ -31,17 +31,17 @@ class SearchTimer {
         searchStartTime = System.currentTimeMillis();
     }
 
-    boolean timeIsUp(long count) {
+    boolean timeIsUp(long nrStatesVisited) {
         if (timeUp)
             return true;
 
         // no need to check for suspension/termination too often since it is quite resource intensive
-        if (count < nextTimeoutCheckCount)
+        if (nrStatesVisited < nextTimeoutCheckStateCount)
             return false;
 
         waitIfSuspended();
 
-        nextTimeoutCheckCount = count + timeoutCheckFrequency;
+        nextTimeoutCheckStateCount = nrStatesVisited + timeoutCheckFrequency;
         return timeUp = elapsedTimeMs() > maxTimeMs;
     }
 

@@ -6,11 +6,13 @@ import java.util.List;
 
 import onitama.ai.Searcher;
 import onitama.ai.TranspositionTable;
+import onitama.common.Utils;
 import onitama.model.Card;
 import onitama.model.CardState;
 import onitama.model.GameState;
 import onitama.model.Move;
 import onitama.model.Pair;
+import onitama.ui.console.Output;
 
 public class TestMultipleSearchThreads {
     static final long MAX_TT_MEMORY = 5L * 1024 * 1024 * 1024;
@@ -36,9 +38,9 @@ public class TestMultipleSearchThreads {
     void testThreadForEachMove() throws InterruptedException {
         int player = PLAYER_0;
 
-        Searcher searcher = new Searcher(50, 1, 0, false);
+        Searcher searcher = new Searcher(Searcher.MAX_DEPTH, 1, 0, true, Utils.NO_LOGGER, false);
         searcher.setState(player, BOARD_WIN_AT_13, new CardState(new Card[][] {{Card.Monkey, Card.Crane}, {Card.Tiger, Card.Crab}}, Card.Dragon));
-        searcher.printBoard();
+        Output.printBoard(searcher);
         List<Pair<Move, GameState>> movesToTest = searcher.getAllMoves();
 
         if (movesToTest.isEmpty()) {
@@ -112,7 +114,7 @@ public class TestMultipleSearchThreads {
             this.board = board;
             this.cardState = cardState;
 
-            searcher = new Searcher(50, ttBits, 1000000, false);
+            searcher = new Searcher(Searcher.MAX_DEPTH, ttBits, 1000000, true, Utils.NO_LOGGER, false);
             searcher.setState(1 - player, board, cardState);
         }
 
@@ -123,7 +125,7 @@ public class TestMultipleSearchThreads {
         }
 
         Pair<Integer, String> getStats() {
-            int depth = searcher.getScoreSearchDepth();
+            int depth = searcher.getScoreSearchNominalDepth();
             int score = searcher.getScore();
             long states = searcher.stats.getStatesEvaluated();
             long qStates = searcher.stats.getQuiescenceStatesEvaluated();

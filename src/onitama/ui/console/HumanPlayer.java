@@ -1,11 +1,13 @@
-package onitama.ui;
+package onitama.ui.console;
 
+import onitama.common.ILogger;
 import onitama.model.GameState;
 import onitama.model.Move;
+import onitama.ui.Player;
 
 public class HumanPlayer extends Player {
 
-    HumanPlayer(int player) { super(player); }
+    HumanPlayer(int player, ILogger logger) { super(player, logger); }
 
     @Override public void gameOver() { }
 
