@@ -35,7 +35,7 @@ public class PonderSearchTask {
         String scoreString = score == Searcher.NO_SCORE ? " N/A" : String.format("%4d", score);
         String depthString = depth == -1 ? " -" : String.format("%2d", depth);
 
-        return new PonderSearchStats(score, depth, String.format("%s  %-" + (Card.getMaxCardNameLength() + 6) + "s %s  %s", scoreString, moveSearched, depthString, Utils.formatNumber(states + qStates)));
+        return new PonderSearchStats(score, depth, String.format("%s  %-" + (Card.MAX_CARD_NAME_LENGTH + 6) + "s %s  %s", scoreString, moveSearched, depthString, Utils.formatNumber(states + qStates)));
     }
 
     void resizeTT(int ttBits) {

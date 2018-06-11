@@ -133,7 +133,7 @@ public class EndgameSearcher {
 
     @SuppressWarnings("unused")
     private void searchAllCards() throws Exception {
-        int cardsToTest = 16;
+        int cardsToTest = Card.NR_CARDS;
 
         List<List<Integer>> combos = new ArrayList<>();
 

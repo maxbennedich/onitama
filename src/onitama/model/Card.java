@@ -3,31 +3,40 @@ package onitama.model;
 import static onitama.model.GameDefinition.N;
 import static onitama.model.GameDefinition.NN;
 
-import java.util.function.Supplier;
+public enum Card {
+    Tiger(new int[] {0,-2, 0,1}),
+    Crab(new int[] {0,-1, -2,0, 2,0}),
+    Monkey(new int[] {-1,-1, -1,1, 1,-1, 1,1}),
+    Crane(new int[] {0,-1, -1,1, 1,1}),
+    Dragon(new int[] {-2,-1, 2,-1, -1,1, 1,1}),
+    Elephant(new int[] {-1,-1, 1,-1, -1,0, 1,0}),
+    Mantis(new int[] {-1,-1, 1,-1, 0,1}),
+    Boar(new int[] {0,-1, -1,0, 1,0}),
+    Frog(new int[] {-1,-1, -2,0, 1,1}),
+    Goose(new int[] {-1,-1, -1,0, 1,0, 1,1}),
+    Horse(new int[] {0,-1, -1,0, 0,1}),
+    Eel(new int[] {-1,-1, 1,0, -1,1}),
+    Rabbit(new int[] {1,-1, 2,0, -1,1}),
+    Rooster(new int[] {1,-1, -1,0, 1,0, -1,1}),
+    Ox(new int[] {0,-1, 1,0, 0,1}),
+    Cobra(new int[] {-1,0, 1,1, 1,-1}),
+    ;
 
-public class Card {
-    private static int cardId = 0;
+    public static final int NR_CARDS;
 
-    public static final int NR_CARDS = 16;
+    public static final Card[] CARDS;
 
-    public static final Card[] CARDS = new Card[NR_CARDS];
+    public static final int MAX_CARD_NAME_LENGTH;
 
-    public static final Card Tiger = new Card("Tiger", new int[] {0,-2, 0,1});
-    public static final Card Crab = new Card("Crab", new int[] {0,-1, -2,0, 2,0});
-    public static final Card Monkey = new Card("Monkey", new int[] {-1,-1, -1,1, 1,-1, 1,1});
-    public static final Card Crane = new Card("Crane", new int[] {0,-1, -1,1, 1,1});
-    public static final Card Dragon = new Card("Dragon", new int[] {-2,-1, 2,-1, -1,1, 1,1});
-    public static final Card Elephant = new Card("Elephant", new int[] {-1,-1, 1,-1, -1,0, 1,0});
-    public static final Card Mantis = new Card("Mantis", new int[] {-1,-1, 1,-1, 0,1});
-    public static final Card Boar = new Card("Boar", new int[] {0,-1, -1,0, 1,0});
-    public static final Card Frog = new Card("Frog", new int[] {-1,-1, -2,0, 1,1});
-    public static final Card Goose = new Card("Goose", new int[] {-1,-1, -1,0, 1,0, 1,1});
-    public static final Card Horse = new Card("Horse", new int[] {0,-1, -1,0, 0,1});
-    public static final Card Eel = new Card("Eel", new int[] {-1,-1, 1,0, -1,1});
-    public static final Card Rabbit = new Card("Rabbit", new int[] {1,-1, 2,0, -1,1});
-    public static final Card Rooster = new Card("Rooster", new int[] {1,-1, -1,0, 1,0, -1,1});
-    public static final Card Ox = new Card("Ox", new int[] {0,-1, 1,0, 0,1});
-    public static final Card Cobra = new Card("Cobra", new int[] {-1,0, 1,1, 1,-1});
+    static {
+        NR_CARDS = Card.values().length;
+        CARDS = Card.values();
+
+        int maxLength = -1;
+        for (Card card : CARDS)
+            maxLength = Math.max(maxLength, card.name.length());
+        MAX_CARD_NAME_LENGTH = maxLength;
+    }
 
     public final String name;
     public final int[] moves;
@@ -35,12 +44,10 @@ public class Card {
 
     public final int[][] moveBitmask = new int[2][NN];
 
-    private Card(String name, int[] moves) {
-        this.name = name;
+    private Card(int[] moves) {
+        this.name = name();
         this.moves = moves;
-        this.id = cardId++;
-
-        CARDS[id] = this;
+        this.id = ordinal();
 
         /** For each combination of player, and board square, create a bitmask of valid moves. */
         for (int player = 0; player < 2; ++player) {
@@ -62,18 +69,7 @@ public class Card {
     }
 
     public String getFixedWidthName() {
-        return String.format("%-" + getMaxCardNameLength() + "s", name);
-    }
-
-    private static Supplier<Integer> maxCardNameLength = () -> {
-        int maxLength = -1;
-        for (Card card : CARDS)
-            maxLength = Math.max(maxLength, card.name.length());
-        return maxLength;
-    };
-
-    public static int getMaxCardNameLength() {
-        return maxCardNameLength.get();
+        return String.format("%-" + MAX_CARD_NAME_LENGTH + "s", name);
     }
 
     /** @return The card with the given name (case insensitive), or null if none is found. Warning: inefficient since it loops over all cards. */
