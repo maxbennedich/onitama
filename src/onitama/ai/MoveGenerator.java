@@ -4,8 +4,6 @@ import static onitama.model.GameDefinition.CARDS_PER_PLAYER;
 import static onitama.model.GameDefinition.WIN_BITMASK;
 import static onitama.model.GameDefinition.WIN_POSITION;
 
-import onitama.model.Card;
-
 /**
  * This class is responsible for generating and ordering the possible moves from a given game state. There will be one
  * instance of this class per ply, to support depth-first searching of the game tree.
@@ -126,7 +124,7 @@ class MoveGenerator {
             p += pz + 1;
 
             for (int card = 0; card < CARDS_PER_PLAYER; ++card) {
-                int moveBitmask = Card.CARDS[((state.cardBits >> 4 + player * 8 + card * 4) & 15)].moveBitmask[player][p];
+                int moveBitmask = state.getCard(((state.cardBits >> 3 * (1 + player * 2 + card)) & 7)).moveBitmask[player][p];
 
                 if (moveType == MoveType.CAPTURE_OR_WIN)
                     moveBitmask &= (state.bitboardPlayer[1-player] | WIN_BITMASK[player]); // only captures and wins

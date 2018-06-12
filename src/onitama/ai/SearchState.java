@@ -1,13 +1,18 @@
 package onitama.ai;
 
+import static onitama.model.GameDefinition.CARDS_PER_PLAYER;
 import static onitama.model.GameDefinition.N;
 
+import onitama.model.Card;
 import onitama.model.CardState;
 import onitama.model.GameDefinition;
 
 class SearchState {
     private static final int PAWN = 0;
     private static final int KING = 1;
+
+    /** Maps internally used card ids (0 - 4) to external ones (in {@link Card}). */
+    private final int[] cardMapping = new int[CARDS_PER_PLAYER * 2 + 1];
 
     int[] bitboardPlayer = {0, 0};
     int[] bitboardKing = {0, 0};
@@ -21,10 +26,24 @@ class SearchState {
 
     void initCards(CardState cardState) {
         for (int p = 0; p < 2; ++p)
-            for (int c = 0; c < GameDefinition.CARDS_PER_PLAYER; ++c)
-                zobrist ^= Zobrist.CARD[p][cardState.playerCards[p][c].id];
+            for (int c = 0; c < CARDS_PER_PLAYER; ++c)
+                zobrist ^= Zobrist.CARD[p][p*2 + c];
 
-        cardBits = cardState.nextCard.id + (cardState.playerCards[0][0].id << 4) + (cardState.playerCards[0][1].id << 8) + (cardState.playerCards[1][0].id << 12) + (cardState.playerCards[1][1].id << 16);
+        // extra card, p0 c0, p0 c1, p1 c0, p1 c1
+        cardBits = 4 + (0 << 3) + (1 << 6) + (2 << 9) + (3 << 12);
+
+        for (int c = 0; c < CARDS_PER_PLAYER * 2; ++c)
+            cardMapping[c] = cardState.playerCards[c/2][c&1].id;
+        cardMapping[CARDS_PER_PLAYER * 2] = cardState.nextCard.id;
+    }
+
+    CardState getCardState() {
+        return new CardState(new Card[][] {{getCard((cardBits>>3)&7), getCard((cardBits>>6)&7)}, {getCard((cardBits>>9)&7), getCard((cardBits>>12)&7)}}, getCard(cardBits&7));
+    }
+
+    /** @return {@link Card} for given internal card id (ranged 0 - 4). */
+    Card getCard(int id) {
+        return Card.CARDS[cardMapping[id]];
     }
 
     void initBoard(String board) {
@@ -46,8 +65,8 @@ class SearchState {
      * used in a single bit, by just storing whether the lower or higher card was used.
      */
     boolean firstCardLower(int player) {
-        int card0 = ((cardBits >> 4 + player * 8) & 15);
-        int card1 = ((cardBits >> 4 + player * 8 + 4) & 15);
+        int card0 = ((cardBits >> 3 * (1 + player * 2)) & 7);
+        int card1 = ((cardBits >> 3 * (1 + player * 2 + 1)) & 7);
         return card0 < card1;
     }
 
@@ -87,15 +106,15 @@ class SearchState {
         zobrist ^= Zobrist.PIECE[player][movedPiece][oldPos];
         zobrist ^= Zobrist.PIECE[player][movedPiece][newPos];
 
-        int cardUsedPos = 4 + player * 8 + cardUsed * 4;
-        int cardUsedId = ((cardBits >> cardUsedPos) & 15);
-        int nextCardId = cardBits & 15;
+        int cardUsedPos = 3 * (1 + player * 2 + cardUsed);
+        int cardUsedId = ((cardBits >> cardUsedPos) & 7);
+        int nextCardId = cardBits & 7;
         zobrist ^= Zobrist.CARD[player][cardUsedId];
         zobrist ^= Zobrist.CARD[player][nextCardId];
 
         zobrist ^= Zobrist.SHIFT_PLAYER;
 
-        cardBits &= ~(15 + (15 << cardUsedPos));
+        cardBits &= ~(7 + (7 << cardUsedPos));
         cardBits |= cardUsedId + (nextCardId << cardUsedPos);
     }
 

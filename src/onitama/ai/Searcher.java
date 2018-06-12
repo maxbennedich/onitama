@@ -8,7 +8,6 @@ import java.util.List;
 
 import onitama.ai.MoveGenerator.MoveType;
 import onitama.common.ILogger;
-import onitama.model.Card;
 import onitama.model.CardState;
 import onitama.model.GameState;
 import onitama.model.Move;
@@ -248,7 +247,7 @@ public class Searcher {
                     alpha = bestScore;
 
                 // update PV so that we can report the best score and the series that leads there
-                pvTable[pvIdx] = ((state.cardBits >> 4 + player * 8 + mg.cardUsed[move] * 4) & 15) + (mg.oldPos[move] << 4) + (mg.newPos[move] << 9);
+                pvTable[pvIdx] = ((state.cardBits >> 3 * (1 + player * 2 + mg.cardUsed[move])) & 7) + (mg.oldPos[move] << 3) + (mg.newPos[move] << 8);
                 System.arraycopy(pvTable, pvNextIdx, pvTable, pvIdx + 1, pvLength[ply + 1]);
                 pvLength[ply] = pvLength[ply + 1] + 1;
 
@@ -319,7 +318,7 @@ public class Searcher {
             if (score > alpha) {
                 alpha = score;
 
-                pvTable[pvIdx] = ((state.cardBits >> 4 + player * 8 + mg.cardUsed[move] * 4) & 15) + (mg.oldPos[move] << 4) + (mg.newPos[move] << 9);
+                pvTable[pvIdx] = ((state.cardBits >> 3 * (1 + player * 2 + mg.cardUsed[move])) & 7) + (mg.oldPos[move] << 3) + (mg.newPos[move] << 8);
                 System.arraycopy(pvTable, pvNextIdx, pvTable, pvIdx + 1, pvLength[ply + 1]);
                 pvLength[ply] = pvLength[ply + 1] + 1;
 
@@ -350,17 +349,20 @@ public class Searcher {
         return mg.oldPos[move] + (cardUsed << 5) + (mg.newPos[move] << 6);
     }
 
-    /** @return Move at the given depth for the current principal variation. */
-    private Move getPVMove(int depth) {
-        int cardId = pvTable[depth] & 15;
-        int p = (pvTable[depth] >> 4) & 31;
-        int n = pvTable[depth] >> 9;
-        return new Move(Card.CARDS[cardId], p%N, p/N, n%N, n/N, getScore(), getScoreSearchPVLineDepth(), stats.getCompactStats());
+    /**
+     * @param includeStats Whether to include stats in the move. NOTE: This is slow, and is intended for post-game analysis only!
+     * @return Move at the given depth for the current principal variation.
+     */
+    private Move getPVMove(int depth, boolean includeStats) {
+        int cardId = pvTable[depth] & 7;
+        int p = (pvTable[depth] >> 3) & 31;
+        int n = pvTable[depth] >> 8;
+        return new Move(state.getCard(cardId), p%N, p/N, n%N, n/N, getScore(), getScoreSearchPVLineDepth(), includeStats ? stats.getCompactStats() : null);
     }
 
     /** The currently best scoring move (the first move of the principal variation). */
     public Move getBestMove() {
-        return getPVMove(0);
+        return getPVMove(0, true);
     }
 
     /** The currently best estimated score for the game being searched (the result of playing the principal variation). */
@@ -401,7 +403,7 @@ public class Searcher {
         StringBuilder pvSb = new StringBuilder();
         for (int d = 0; d < pvLength[0]; ++d) {
             if (d > 0) pvSb.append(" | ");
-            pvSb.append(getPVMove(d));
+            pvSb.append(getPVMove(d, false));
         }
 
         return String.format("%2d/%2d%2s%s%6d   %s", currentDepthSearched, stats.getMaxDepthSeen(), depthComplete ? "->" : "  ", timeStr, score, pvSb);
@@ -471,7 +473,7 @@ public class Searcher {
             mg.move(mi);
 
             int op = mg.oldPos[mi], np = mg.newPos[mi];
-            Move move = new Move(Card.CARDS[state.cardBits&15], op%N, op/N, np%N, np/N);
+            Move move = new Move(state.getCard(state.cardBits&7), op%N, op/N, np%N, np/N);
 
             moves.add(new Pair<>(move, AIUtils.getGameState(state)));
 

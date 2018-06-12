@@ -80,11 +80,13 @@ Note that the table is used for storing both score/node information and best mov
 ## Example output
 
 Below is some output from a game where the AI, after a single move from a human player, was able
-to guarantee a win within 24 moves (total; 12 moves each), after 63 seconds of computation on a
-2.6 GHz laptop. Depth "18/24" means that the game was searched in full to a depth of 18 moves,
-and that the maximum depth analyzed (including quiescence search) was 24 moves. A score of ~100
-means one piece advantage. 500 means victory. Smaller difference in scores means better positioning
-on the board. The output format is inspired by
+to guarantee a win in 19 plies (10 moves), after 44 seconds of computation on a
+2.6 GHz laptop. Depth "18/24" means that the game was searched in full to a depth of 18 plies,
+and that the maximum depth analyzed (including quiescence search) was 24 plies. Looking more closely
+at the principal variation (list of best moves), we see that "Tiger c3-c1" puts the AI in the winning
+square and occurs at ply 19.
+A score of ~100 means one piece advantage. 500 means victory. Smaller difference in scores means
+better positioning on the board. The output format is inspired by
 [Crafty](http://www.craftychess.com/documentation/craftydoc.html).
 
 ```
@@ -112,30 +114,30 @@ Player 2 cards: Tiger Ox
 Extra card: Rooster
 
  depth    time  score  best moves
- 1/ 2->   0.01     2   Tiger a5-a3
- 2/ 3->   0.01     1   Tiger a5-a3 | Crane d2-d3
- 3/ 6->   0.01     2   Ox d5-d4 | Crane d2-d3 | Tiger a5-a3
- 4/ 7->   0.02     3   Ox d5-d4 | Crane d2-d3 | Tiger a5-a3 | Ox d3-e3
- 5/ 8->   0.02     4   Ox d5-d4 | Crane d2-d3 | Tiger b5-b3 | Ox d3-e3 | Crane e5-e4
- 6/10->   0.03     2   Ox d5-d4 | Crane d2-d3 | Tiger b5-b3 | Ox d3-d2 | Rooster b3-c3 | Tiger a1-a3
- 7/12->   0.04     4   Ox c5-c4 | Crane d2-c1 | Rooster e5-d4 | Horse b1-b2 | Crane b5-b4 | Ox a1-a2 | Tiger d5-d3
- 8/14->   0.15     3   Ox d5-d4 | Horse d2-c2 | Rooster d4-c3 | Ox c2-d2 | Horse c5-c4 | Crane a1-a2 | Ox b5-b4 | Horse b1-b2
- 9/14->   0.28     5   Ox d5-d4 | Horse d2-c2 | Rooster d4-c3 | Ox c2-d2 | Horse e5-e4 | Rooster a1-b2 | Ox b5-b4 | Crane b2-c1 | Tiger a5-a3
-10/18->   0.52     6   Ox d5-d4 | Horse d2-c2 | Rooster d4-c3 | Ox c2-d2 | Horse e5-e4 | Crane a1-a2 | Ox e4-d4 | Rooster d2-e2 | Tiger b5-b3 | Horse d1-c1
-11/18->   0.71     6   Ox d5-d4 | Horse d2-c2 | Rooster d4-c3 | Ox c2-d2 | Horse e5-e4 | Crane a1-a2 | Ox e4-d4 | Rooster d2-e2 | Tiger b5-b3 | Horse d1-c1 | Crane b3-c4
-12/19->   1.68   105   Ox d5-d4 | Horse d2-c2 | Rooster d4-c3 | Ox c2-d2 | Horse e5-e4 | Crane b1-b2 | Ox c5-c4 | Horse b2-b3 | Tiger b5-b3 | Ox a1-a2 | Horse a5-a4 | Rooster a2-b3
-13/18     1.91   105   Ox d5-d4 | Horse d2-c2 | Rooster d4-c3 | Ox c2-d2 | Horse e5-e4 | Crane b1-b2 | Ox c5-c4 | Horse b2-b3 | Tiger b5-b3 | Ox a1-a2 | Horse a5-a4 | Rooster a2-b3 | Ox c3-b3
-13/18->   3.01   105   Ox d5-d4 | Horse d2-c2 | Rooster d4-c3 | Ox c2-d2 | Horse e5-e4 | Crane b1-b2 | Ox c5-c4 | Horse b2-b3 | Tiger b5-b3 | Ox a1-a2 | Horse a5-a4 | Rooster a2-b3 | Ox c3-b3
-14/21     4.17   105   Ox d5-d4 | Horse d2-c2 | Rooster d4-c3 | Ox c2-d2 | Horse e5-e4 | Crane b1-b2 | Ox c5-c4 | Horse b2-b3 | Tiger b5-b3 | Ox a1-a2 | Horse a5-a4 | Rooster a2-b3 | Ox e4-d4 | Horse d1-c1
-14/21->   8.48   105   Ox d5-d4 | Horse d2-c2 | Rooster d4-c3 | Ox c2-d2 | Horse e5-e4 | Crane b1-b2 | Ox c5-c4 | Horse b2-b3 | Tiger b5-b3 | Ox a1-a2 | Horse a5-a4 | Rooster a2-b3 | Ox e4-d4 | Horse d1-c1
-15/20     9.90   107   Ox d5-d4 | Horse d2-c2 | Rooster d4-c3 | Ox c2-d2 | Horse e5-e4 | Crane b1-b2 | Ox c5-c4 | Horse b2-b3 | Tiger b5-b3 | Ox a1-a2 | Crane b3-b2 | Tiger d1-d3 | Ox b2-a2 | Rooster d3-e4 | Tiger a5-a3
-15/21->   15 s   107   Ox d5-d4 | Horse d2-c2 | Rooster d4-c3 | Ox c2-d2 | Horse e5-e4 | Crane b1-b2 | Ox c5-c4 | Horse b2-b3 | Tiger b5-b3 | Ox a1-a2 | Crane b3-b2 | Tiger d1-d3 | Ox b2-a2 | Rooster d3-e4 | Tiger a5-a3
-16/23     21 s   107   Ox d5-d4 | Horse d2-c2 | Rooster d4-c3 | Ox c2-d2 | Horse e5-e4 | Crane b1-b2 | Ox c5-c4 | Horse b2-b3 | Tiger b5-b3 | Ox a1-b1 | Crane a5-a4 | Rooster d2-c1 | Ox e4-d4 | Crane d1-d2 | Horse a4-a3 | Tiger e1-e3
-16/23->   40 s   107   Ox d5-d4 | Horse d2-c2 | Rooster d4-c3 | Ox c2-d2 | Horse e5-e4 | Crane b1-b2 | Ox c5-c4 | Horse b2-b3 | Tiger b5-b3 | Ox a1-b1 | Crane a5-a4 | Rooster d2-c1 | Ox e4-d4 | Crane d1-d2 | Horse a4-a3 | Tiger e1-e3
-17/23     46 s   109   Ox d5-d4 | Horse d2-c2 | Rooster d4-c3 | Ox c2-d2 | Horse e5-e4 | Crane b1-b2 | Ox c5-c4 | Horse b2-b3 | Tiger b5-b3 | Ox a1-b1 | Crane b3-b2 | Rooster d2-e2 | Ox b2-b1 | Tiger e2-e4 | Rooster b1-c2 | Ox e1-e2 | Tiger a5-a3
-17/23->   63 s   109   Ox d5-d4 | Horse d2-c2 | Rooster d4-c3 | Ox c2-d2 | Horse e5-e4 | Crane b1-b2 | Ox c5-c4 | Horse b2-b3 | Tiger b5-b3 | Ox a1-b1 | Crane b3-b2 | Rooster d2-e2 | Ox b2-b1 | Tiger e2-e4 | Rooster b1-c2 | Ox e1-e2 | Tiger a5-a3
-18/24     63 s   500   Ox d5-d4 | Horse d2-c2 | Rooster d4-c3 | Ox c2-d2 | Horse e5-e4 | Crane b1-b2 | Ox e4-d4 | Rooster d2-e2 | Crane c5-c4 | Ox d1-d2 | Rooster c3-b2 | Crane e2-e3 | Tiger d4-d2 | Rooster e3-d2 | Ox c4-c3 | Tiger a1-a3 | Crane b2-a3 | Horse e1-e2 | Tiger c3-c1
-18/24->   63 s   500   Ox d5-d4 | Horse d2-c2 | Rooster d4-c3 | Ox c2-d2 | Horse e5-e4 | Crane b1-b2 | Ox e4-d4 | Rooster d2-e2 | Crane c5-c4 | Ox d1-d2 | Rooster c3-b2 | Crane e2-e3 | Tiger d4-d2 | Rooster e3-d2 | Ox c4-c3 | Tiger a1-a3 | Crane b2-a3 | Horse e1-e2 | Tiger c3-c1
+ 1/ 2->   0.00     2   Tiger a5-a3
+ 2/ 3->   0.00     1   Tiger a5-a3 | Crane d2-d3
+ 3/ 6->   0.00     2   Ox d5-d4 | Crane d2-d3 | Tiger a5-a3
+ 4/ 7->   0.00     3   Ox d5-d4 | Crane d2-d3 | Tiger a5-a3 | Ox d3-e3
+ 5/ 8->   0.00     4   Ox d5-d4 | Crane d2-d3 | Tiger b5-b3 | Ox d3-e3 | Crane e5-e4
+ 6/10->   0.00     2   Ox d5-d4 | Crane d2-d3 | Tiger b5-b3 | Ox d3-d2 | Rooster b3-c3 | Tiger a1-a3
+ 7/12->   0.01     4   Ox c5-c4 | Crane d2-c1 | Rooster e5-d4 | Horse b1-b2 | Crane b5-b4 | Ox a1-a2 | Tiger d5-d3
+ 8/14->   0.03     3   Ox d5-d4 | Horse d2-c2 | Rooster d4-c3 | Ox c2-d2 | Horse c5-c4 | Crane a1-a2 | Ox b5-b4 | Horse b1-b2
+ 9/14->   0.05     5   Ox d5-d4 | Horse d2-c2 | Rooster d4-c3 | Ox c2-d2 | Horse e5-e4 | Rooster a1-b2 | Ox b5-b4 | Crane b2-c1 | Tiger a5-a3
+10/18->   0.19     6   Ox d5-d4 | Horse d2-c2 | Rooster d4-c3 | Ox c2-d2 | Horse e5-e4 | Crane a1-a2 | Ox e4-d4 | Rooster d2-e2 | Tiger b5-b3 | Horse d1-c1
+11/18->   0.32     6   Ox d5-d4 | Horse d2-c2 | Rooster d4-c3 | Ox c2-d2 | Horse e5-e4 | Crane a1-a2 | Ox e4-d4 | Rooster d2-e2 | Tiger b5-b3 | Horse d1-c1 | Crane b3-c4
+12/19->   1.05   105   Ox d5-d4 | Horse d2-c2 | Rooster d4-c3 | Ox c2-d2 | Horse e5-e4 | Crane b1-b2 | Ox c5-c4 | Horse b2-b3 | Tiger b5-b3 | Ox a1-a2 | Horse a5-a4 | Rooster a2-b3
+13/18     1.20   105   Ox d5-d4 | Horse d2-c2 | Rooster d4-c3 | Ox c2-d2 | Horse e5-e4 | Crane b1-b2 | Ox c5-c4 | Horse b2-b3 | Tiger b5-b3 | Ox a1-a2 | Horse a5-a4 | Rooster a2-b3 | Ox c3-b3
+13/18->   1.84   105   Ox d5-d4 | Horse d2-c2 | Rooster d4-c3 | Ox c2-d2 | Horse e5-e4 | Crane b1-b2 | Ox c5-c4 | Horse b2-b3 | Tiger b5-b3 | Ox a1-a2 | Horse a5-a4 | Rooster a2-b3 | Ox c3-b3
+14/21     2.59   105   Ox d5-d4 | Horse d2-c2 | Rooster d4-c3 | Ox c2-d2 | Horse e5-e4 | Crane b1-b2 | Ox c5-c4 | Horse b2-b3 | Tiger b5-b3 | Ox a1-a2 | Horse a5-a4 | Rooster a2-b3 | Ox e4-d4 | Horse d1-c1
+14/21->   5.50   105   Ox d5-d4 | Horse d2-c2 | Rooster d4-c3 | Ox c2-d2 | Horse e5-e4 | Crane b1-b2 | Ox c5-c4 | Horse b2-b3 | Tiger b5-b3 | Ox a1-a2 | Horse a5-a4 | Rooster a2-b3 | Ox e4-d4 | Horse d1-c1
+15/20     6.38   107   Ox d5-d4 | Horse d2-c2 | Rooster d4-c3 | Ox c2-d2 | Horse e5-e4 | Crane b1-b2 | Ox c5-c4 | Horse b2-b3 | Tiger b5-b3 | Ox a1-a2 | Crane b3-b2 | Tiger d1-d3 | Ox b2-a2 | Rooster d3-e4 | Tiger a5-a3
+15/21->   9.48   107   Ox d5-d4 | Horse d2-c2 | Rooster d4-c3 | Ox c2-d2 | Horse e5-e4 | Crane b1-b2 | Ox c5-c4 | Horse b2-b3 | Tiger b5-b3 | Ox a1-a2 | Crane b3-b2 | Tiger d1-d3 | Ox b2-a2 | Rooster d3-e4 | Tiger a5-a3
+16/23     14 s   107   Ox d5-d4 | Horse d2-c2 | Rooster d4-c3 | Ox c2-d2 | Horse e5-e4 | Crane b1-b2 | Ox c5-c4 | Horse b2-b3 | Tiger b5-b3 | Ox a1-b1 | Crane a5-a4 | Rooster d2-c1 | Ox e4-d4 | Crane d1-d2 | Horse a4-a3 | Tiger e1-e3
+16/23->   27 s   107   Ox d5-d4 | Horse d2-c2 | Rooster d4-c3 | Ox c2-d2 | Horse e5-e4 | Crane b1-b2 | Ox c5-c4 | Horse b2-b3 | Tiger b5-b3 | Ox a1-b1 | Crane a5-a4 | Rooster d2-c1 | Ox e4-d4 | Crane d1-d2 | Horse a4-a3 | Tiger e1-e3
+17/23     31 s   109   Ox d5-d4 | Horse d2-c2 | Rooster d4-c3 | Ox c2-d2 | Horse e5-e4 | Crane b1-b2 | Ox c5-c4 | Horse b2-b3 | Tiger b5-b3 | Ox a1-b1 | Crane b3-b2 | Rooster d2-e2 | Ox b2-b1 | Tiger e2-e4 | Rooster b1-c2 | Ox e1-e2 | Tiger a5-a3
+17/23->   44 s   109   Ox d5-d4 | Horse d2-c2 | Rooster d4-c3 | Ox c2-d2 | Horse e5-e4 | Crane b1-b2 | Ox c5-c4 | Horse b2-b3 | Tiger b5-b3 | Ox a1-b1 | Crane b3-b2 | Rooster d2-e2 | Ox b2-b1 | Tiger e2-e4 | Rooster b1-c2 | Ox e1-e2 | Tiger a5-a3
+18/24     44 s   500   Ox d5-d4 | Horse d2-c2 | Rooster d4-c3 | Ox c2-d2 | Horse e5-e4 | Crane b1-b2 | Ox e4-d4 | Rooster d2-e2 | Crane c5-c4 | Ox d1-d2 | Rooster c3-b2 | Crane e2-e3 | Tiger d4-d2 | Rooster e3-d2 | Ox c4-c3 | Tiger a1-a3 | Crane b2-a3 | Horse e1-e2 | Tiger c3-c1
+18/24->   44 s   500   Ox d5-d4 | Horse d2-c2 | Rooster d4-c3 | Ox c2-d2 | Horse e5-e4 | Crane b1-b2 | Ox e4-d4 | Rooster d2-e2 | Crane c5-c4 | Ox d1-d2 | Rooster c3-b2 | Crane e2-e3 | Tiger d4-d2 | Rooster e3-d2 | Ox c4-c3 | Tiger a1-a3 | Crane b2-a3 | Horse e1-e2 | Tiger c3-c1
 
 Nominal depth searched: 18
 Max depth searched: 24

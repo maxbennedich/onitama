@@ -27,6 +27,13 @@ public class TestSingleSearch {
             ".wwW." +
             "w...w";
 
+    static String BOARD_WIN_AT_20 =
+            "bbBbb" +
+            "....." +
+            "....." +
+            "...W." +
+            "ww.ww";
+
     static String BOARD_GAME =
             "....." +
             "..Bb." +
@@ -59,7 +66,8 @@ public class TestSingleSearch {
 //        searcher.setState(PLAYER_1, BOARD_GAME_2, new CardState(new Card[][] {{Card.Dragon, Card.Frog}, {Card.Eel, Card.Crab}}, Card.Monkey));
 //        searcher.setState(PLAYER_1, BOARD_GAME_8, new CardState(new Card[][] {{Card.Eel, Card.Frog}, {Card.Dragon, Card.Monkey}}, Card.Crab));
 //        searcher.setState(PLAYER_0, EMPTY_BOARD, new CardState(new Card[][] {{Card.Monkey, Card.Frog}, {Card.Elephant, Card.Boar}}, Card.Cobra)); // from Depth test
-        searcher.setState(PLAYER_1, BOARD_GAME_MAX_9, new CardState(new Card[][] {{Card.Ox, Card.Crane}, {Card.Horse, Card.Tiger}}, Card.Eel));
+//        searcher.setState(PLAYER_1, BOARD_GAME_MAX_9, new CardState(new Card[][] {{Card.Ox, Card.Crane}, {Card.Horse, Card.Tiger}}, Card.Eel));
+        searcher.setState(PLAYER_1, BOARD_WIN_AT_20, new CardState(new Card[][] {{Card.Crane, Card.Horse}, {Card.Tiger, Card.Ox}}, Card.Rooster)); // from README
 
 //        searcher.setState(PLAYER_0, EMPTY_BOARD, new CardState(new Card[][] {{Card.Crab, Card.Frog}, {Card.Crane, Card.Horse}}, Card.Tiger)); // use this for testing!
 //        searcher.setState(PLAYER_0, EMPTY_BOARD, new CardState(new Card[][] {{Card.Crane, Card.Horse}, {Card.Frog, Card.Eel}}, Card.Monkey)); // use this for testing!

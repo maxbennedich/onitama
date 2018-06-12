@@ -5,8 +5,6 @@ import static onitama.model.GameDefinition.NN;
 import java.util.List;
 
 import onitama.common.Utils;
-import onitama.model.Card;
-import onitama.model.CardState;
 import onitama.model.GameState;
 import onitama.model.Move;
 import onitama.model.Pair;
@@ -21,7 +19,7 @@ public class AIUtils {
     }
 
     public static GameState getGameState(SearchState state) {
-        return new GameState(getBoard(state.bitboardPlayer, state.bitboardKing), getCardState(state.cardBits));
+        return new GameState(getBoard(state.bitboardPlayer, state.bitboardKing), state.getCardState());
     }
 
     private static char[] BOARD_MARKERS = new char[] {' ', 'w', 'b', 'W', 'B'};
@@ -37,9 +35,5 @@ public class AIUtils {
             board[p] = BOARD_MARKERS[c];
         }
         return new String(board);
-    }
-
-    private static CardState getCardState(int cardBits) {
-        return new CardState(new Card[][] {{Card.CARDS[(cardBits>>4)&15], Card.CARDS[(cardBits>>8)&15]}, {Card.CARDS[(cardBits>>12)&15], Card.CARDS[(cardBits>>16)&15]}}, Card.CARDS[cardBits&15]);
     }
 }
