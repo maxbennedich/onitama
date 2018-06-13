@@ -10,4 +10,8 @@ public class SearchParameters {
         this.maxDepth = maxDepth;
         this.maxSearchTimeMs = maxSearchTimeMs;
     }
+
+    @Override public String toString() {
+        return String.format("TT = %d bits, Depth = %d, Time = %d ms", ttBits, maxDepth, maxSearchTimeMs);
+    }
 }

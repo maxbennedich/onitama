@@ -24,7 +24,7 @@ import onitama.ui.console.Output;
 import onitama.ui.console.Output.OutputLevel;
 
 public class TestAIVsAI {
-    static final int THREADS = 2;
+    static final int THREADS = 4;
 
     static String EMPTY_BOARD =
             "bbBbb" +
@@ -33,41 +33,42 @@ public class TestAIVsAI {
             "....." +
             "wwWww";
 
-    static int depth[] = new int[2];
-    static Player[] players = new Player[2];
-
     public static void main(String ... args) throws Exception {
         Output.outputLevel = OutputLevel.NONE;
 
-//        for (int d = 1; d <= 15; ++d) {
-//            for (int n = 1; n <= d; ++n) {
-//                for (int p = 0; p < 2; ++p) {
-//                    if (p == 1 && n == d) continue;
-//                    depth[p] = d;
-//                    depth[1-p] = n;
-//                    for (int i = 0; i < 2; ++i)
-//                        players[i] = new AIPlayer(i, new SearchParameters(22, depth[i], Integer.MAX_VALUE));
-//                    runTest(200);
-//                }
-//            }
-//        }
+        SearchParameters[] aiParams = new SearchParameters[2];
+        for (int i = 0; i < 2; ++i)
+            aiParams[i] = new SearchParameters(16, Searcher.MAX_DEPTH, 30+i);
+
+        runTest(aiParams, 30);
 
         for (int i = 0; i < 2; ++i)
-            players[i] = new AIPlayer(i, new SearchParameters(16, Searcher.MAX_DEPTH, 30+i), false, Utils.NO_LOGGER);
+            aiParams[i] = new SearchParameters(16, Searcher.MAX_DEPTH, 31-i);
 
-        runTest(100);
-
-        for (int i = 0; i < 2; ++i)
-            players[i] = new AIPlayer(i, new SearchParameters(16, Searcher.MAX_DEPTH, 31-i), false, Utils.NO_LOGGER);
-
-        runTest(100);
+        runTest(aiParams, 30);
     }
 
-    private static Pair<Integer, Integer> playCards(CardState cards) {
+    /** Test playing AI against itself but with another search depth. */
+    @SuppressWarnings("unused")
+    private static void testAIsWithDifferentDepths() throws Exception {
+        for (int d = 1; d <= 15; ++d) {
+            for (int n = 1; n <= d; ++n) {
+                for (int p = 0; p < 2; ++p) {
+                    if (p == 1 && n == d) continue;
+                    SearchParameters[] aiParams = new SearchParameters[2];
+                    for (int i = 0; i < 2; ++i)
+                        aiParams[i] = new SearchParameters(22, i == p ? d : n, Integer.MAX_VALUE);
+                    runTest(aiParams, 200);
+                }
+            }
+        }
+    }
+
+    private static Pair<Integer, Integer> playCards(Player[] players, CardState cards) {
         return new GameSimulator(players, new GameState(EMPTY_BOARD, cards)).play();
     }
 
-    private static void runTest(final int nrOfHandsToTest) throws Exception {
+    private static void runTest(final SearchParameters[] aiParams, final int nrOfHandsToTest) throws Exception {
         int cardsToTest = 16;
 
         List<List<Integer>> combos = new ArrayList<>();
@@ -91,7 +92,7 @@ public class TestAIVsAI {
         final List<List<Integer>> combosToTest = new ArrayList<List<Integer>>();
         for (int h = 0; h < nrOfHandsToTest; ++h) {
             combosToTest.add(combos.get(h));
-            // add the same cards with the two player cards swapped -- don't do this since the extra card creates a bias anyway
+            // Don't add the same cards with the two player cards swapped -- the extra card creates a bias anyway
 //            combosToTest.add(Arrays.asList(combos.get(h).get(2), combos.get(h).get(3), combos.get(h).get(0), combos.get(h).get(1), combos.get(h).get(4)));
         }
 
@@ -113,7 +114,11 @@ public class TestAIVsAI {
 
                     long time = System.currentTimeMillis();
 
-                    Pair<Integer, Integer> gameResult = playCards(new CardState(new Card[][] {{Card.CARDS[c0], Card.CARDS[c1]}, {Card.CARDS[c2], Card.CARDS[c3]}}, Card.CARDS[c4]));
+                    Player[] players = new Player[2];
+                    for (int i = 0; i < 2; ++i)
+                        players[i] = new AIPlayer(i, aiParams[i], false, Utils.NO_LOGGER);
+
+                    Pair<Integer, Integer> gameResult = playCards(players, new CardState(new Card[][] {{Card.CARDS[c0], Card.CARDS[c1]}, {Card.CARDS[c2], Card.CARDS[c3]}}, Card.CARDS[c4]));
 
                     time = System.currentTimeMillis() - time;
 
@@ -139,20 +144,16 @@ public class TestAIVsAI {
 
         totalTime = System.currentTimeMillis() - totalTime;
 
-//        System.out.println();
         int c0 = winCount[0].get(), c1 = winCount[1].get();
-//        System.out.printf("Total combinations won for p1/p2: %d / %d (%.0f%% / %.0f%%)%n", c0, c1, 100.0 * c0 / (c0 + c1), 100.0 * c1 / (c0 + c1));
-//        System.out.printf("Stuck games: %d%n", drawCount.get());
-//
+
         List<Integer> plies = getPliesList(gamesByPlies);
-//        System.out.printf("Med/max plies: %d / %d%n", getMedian(plies), Collections.max(plies));
 
-        System.out.printf("%d/%d: %.1f%% (%d / %d) -- %.0f s%n", depth[0], depth[1], 100.0 * c0 / (c0 + c1), getMedian(plies), Collections.max(plies), totalTime / 1000.0);
+        System.out.printf("%nAI 1: %s%nAI 2: %s%n", aiParams[0], aiParams[1]);
+        System.out.printf("%nAI #1 won %.1f%% games (avg plies = %d / max plies = %d) -- %.0f s%n", 100.0 * c0 / (c0 + c1), getMedian(plies), Collections.max(plies), totalTime / 1000.0);
 
-//        System.out.println();
-//        gamesByPlies.keySet().stream().sorted().forEach(plies -> {
-//            System.out.printf("%d plies: %d games%n", plies, gamesByPlies.get(plies));
-//        });
+        System.out.println();
+        gamesByPlies.keySet().stream().sorted().forEach(p -> System.out.printf("%d plies: %d games%n", p, gamesByPlies.get(p)));
+        System.out.printf("Stuck games: %d%n%n", drawCount.get());
     }
 
     static List<Integer> getPliesList(Map<Integer, Integer> gamesByPlies) {
@@ -170,5 +171,4 @@ public class TestAIVsAI {
             return (list.get(list.size()/2) + list.get(list.size()/2 - 1))/2;
         return list.get(list.size()/2);
     }
-
 }
