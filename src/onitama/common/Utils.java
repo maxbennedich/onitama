@@ -53,7 +53,7 @@ public class Utils {
         }
     }
 
-    public static void joinThreadAndLogException(Thread thread) {
+    public static void joinAndLogException(Thread thread) {
         try {
             thread.join();
         } catch (InterruptedException ie) {

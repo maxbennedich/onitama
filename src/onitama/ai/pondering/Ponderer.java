@@ -98,10 +98,6 @@ public class Ponderer {
         if (searchersRemaining.intValue() == 0)
             return; // no moves available
 
-        System.out.println("Moves available:");
-        for (Pair<Move, GameState> p : movesToSearch) System.out.println(p.p);
-        System.out.println();
-
         ttBits = getTTBits(searchersRemaining.intValue());
         ttResizing = true;
 
@@ -129,26 +125,20 @@ public class Ponderer {
             while (true) {
                 PonderSearcher searcher = searchQueue.take();
                 if (searcher == PonderSearcher.SHUT_DOWN_SEARCH_THREADS) {
-                    log("thread " + id + " - Shutdown token on thread with size = " + searchQueue.size());
                     searchQueue.add(PonderSearcher.SHUT_DOWN_SEARCH_THREADS);
                     break;
                 }
-                log("thread " + id + " - searching one ply for move " + searcher);
                 searcher.searchNextPly();
                 if (searcher.isSearchCompleted()) {
-                    int searchersRemainingCount = searchersRemaining.decrementAndGet();
-                    log("thread " + id + " - ponder move "+searcher+" analyzed fully; searchers remaining = " + searchersRemainingCount);
                     synchronized (searcherCompletedLock) {
                         searcherCompletedLock.notifyAll();
                     }
                     submitTTResize();
                 } else {
-                    log("thread " + id + " - finished searching one ply for move " + searcher + ", putting back in queue");
                     searchQueue.add(searcher);
                 }
             }
         } catch (InterruptedException ie) { ie.printStackTrace(); }
-        log("thread " + id + " - ponder thread ends");
     }
 
     /**
@@ -189,13 +179,7 @@ public class Ponderer {
 
         allSearchers.values().forEach(s -> s.stopSearch());
         searchQueue.add(PonderSearcher.SHUT_DOWN_SEARCH_THREADS);
-        ponderThreads.forEach(t -> { try { t.join(); log("stopped " + t);} catch (InterruptedException ie) { ie.printStackTrace(); }});
-    }
-
-    static long t0 = System.currentTimeMillis();
-
-    static void log(String str) {
-        System.out.printf("%5d - %s%n", System.currentTimeMillis() - t0, str);
+        ponderThreads.forEach(t -> Utils.joinAndLogException(t));
     }
 
     public Move getBestMove(Move opponentMove, int remainingTimeMs) {
@@ -203,15 +187,12 @@ public class Ponderer {
 
         stopTTResizing();
 
-        log("Shutting down searchers");
         for (PonderSearcher searcher : allSearchers.values())
             if (!opponentMove.equals(searcher.moveSearched))
                 searcher.stopSearch();
 
-        log("Waiting for searchers to die");
         synchronized (searcherCompletedLock) {
             while (allSearchers.values().stream().filter(s -> !opponentMove.equals(s.moveSearched)).anyMatch(s -> !s.isSearchCompleted())) {
-                log("searcher remaining, waiting...; number remaining = " + allSearchers.values().stream().filter(s -> !opponentMove.equals(s.moveSearched) && !s.isSearchCompleted()).count());
                 try {
                     searcherCompletedLock.wait();
                 } catch (InterruptedException ie) {
@@ -219,16 +200,14 @@ public class Ponderer {
                 }
             }
         }
-        log("all searchers dead");
 
         PonderSearcher searcherToKeep = allSearchers.get(opponentMove);
         searcherToKeep.resizeTT(getTTBits(1));
         int elapsedMs = (int)((System.nanoTime() - timestamp + 500_000) / 1_000_000);
-        log("adjusting timeout to " + Math.max(0, remainingTimeMs - elapsedMs) + " ms");
         searcherToKeep.timeout(Math.max(0, remainingTimeMs - elapsedMs));
 
         searchQueue.add(PonderSearcher.SHUT_DOWN_SEARCH_THREADS);
-        ponderThreads.forEach(t -> { try { t.join(); log("stopped " + t);} catch (InterruptedException ie) { ie.printStackTrace(); }});
+        ponderThreads.forEach(t -> Utils.joinAndLogException(t));
 
         return searcherToKeep.getBestMove();
     }

@@ -53,7 +53,7 @@ public class TuningUtils {
             thread.start();
 
         for (Thread thread : threads)
-            Utils.joinThreadAndLogException(thread);
+            Utils.joinAndLogException(thread);
 
         return results;
     }

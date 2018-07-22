@@ -57,12 +57,10 @@ public class PonderSearcher implements Comparable<PonderSearcher> {
     }
 
     public void resizeTT(int ttBits) {
-        Ponderer.log("Resizing " + this + " to " + ttBits + " bits");
         searcher.resizeTTAsync(ttBits);
     }
 
     void stopSearch() {
-        Ponderer.log("stopping " + this);
         searcher.stop();
     }
 
