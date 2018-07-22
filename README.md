@@ -15,6 +15,15 @@ resolution):
   <img src="screenshot-gui.png" width="50%" align="middle">
 </a>
 
+## Running
+
+```
+javac -cp src src/onitama/ui/Onitama.java
+java -cp src onitama/ui/Onitama
+```
+
+Requires Java 8.
+
 ## Features implemented
 - [Negamax](https://chessprogramming.wikispaces.com/Negamax) with [alpha-beta pruning](https://chessprogramming.wikispaces.com/Alpha-Beta)
 - [Iterative deepening](https://chessprogramming.wikispaces.com/Iterative+Deepening)
