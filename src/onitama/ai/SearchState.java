@@ -1,40 +1,52 @@
 package onitama.ai;
 
+import static onitama.model.GameDefinition.CARDS_PER_GAME;
 import static onitama.model.GameDefinition.CARDS_PER_PLAYER;
 import static onitama.model.GameDefinition.N;
+import static onitama.model.GameDefinition.NR_PLAYERS;
 
+import java.util.function.Function;
+
+import onitama.ai.evaluation.Evaluator;
 import onitama.model.Card;
 import onitama.model.CardState;
 import onitama.model.GameDefinition;
+import onitama.ui.console.Output;
 
-class SearchState {
+public class SearchState {
     private static final int PAWN = 0;
     private static final int KING = 1;
 
-    /** Maps internally used card ids (0 - 4) to external ones (in {@link Card}). */
-    private final int[] cardMapping = new int[CARDS_PER_PLAYER * 2 + 1];
+    private final Evaluator evaluator;
 
-    int[] bitboardPlayer = {0, 0};
-    int[] bitboardKing = {0, 0};
-    int cardBits;
+    /** Maps internally used card ids (0 - 4) to external ones (in {@link Card}). */
+    public final int[] cardMapping = new int[CARDS_PER_GAME];
+
+    public int[] bitboardPlayer = {0, 0};
+    public int[] bitboardKing = {0, 0};
+    public int cardBits;
     long zobrist;
 
-    void initPlayer(int playerTurn) {
+    public SearchState(Function<SearchState, Evaluator> evaluator) {
+        this.evaluator = evaluator.apply(this);
+    }
+
+    public void initPlayer(int playerTurn) {
         if (playerTurn == 1)
             zobrist ^= Zobrist.SHIFT_PLAYER; // to make hash values deterministic regardless of initial player
     }
 
-    void initCards(CardState cardState) {
-        for (int p = 0; p < 2; ++p)
+    public void initCards(CardState cardState) {
+        for (int p = 0; p < NR_PLAYERS; ++p)
             for (int c = 0; c < CARDS_PER_PLAYER; ++c)
-                zobrist ^= Zobrist.CARD[p][p*2 + c];
+                zobrist ^= Zobrist.CARD[p][p*CARDS_PER_PLAYER + c];
 
         // extra card, p0 c0, p0 c1, p1 c0, p1 c1
         cardBits = 4 + (0 << 3) + (1 << 6) + (2 << 9) + (3 << 12);
 
-        for (int c = 0; c < CARDS_PER_PLAYER * 2; ++c)
+        for (int c = 0; c < CARDS_PER_PLAYER * NR_PLAYERS; ++c)
             cardMapping[c] = cardState.playerCards[c/2][c&1].id;
-        cardMapping[CARDS_PER_PLAYER * 2] = cardState.nextCard.id;
+        cardMapping[CARDS_PER_PLAYER * NR_PLAYERS] = cardState.nextCard.id;
     }
 
     CardState getCardState() {
@@ -46,14 +58,14 @@ class SearchState {
         return Card.CARDS[cardMapping[id]];
     }
 
-    void initBoard(String board) {
+    public void initBoard(String board) {
         for (int y = 0, bit = 1; y < N; ++y) {
             for (int x = 0; x < N; ++x, bit *= 2) {
-                if (board.charAt(y*5+x) != '.') {
-                    if (board.charAt(y*5+x) == 'w') { bitboardPlayer[0] |= bit; zobrist ^= Zobrist.PIECE[0][0][y*5+x]; }
-                    else if (board.charAt(y*5+x) == 'b') { bitboardPlayer[1] |= bit; zobrist ^= Zobrist.PIECE[1][0][y*5+x]; }
-                    else if (board.charAt(y*5+x) == 'W') { bitboardPlayer[0] |= bit; bitboardKing[0] |= bit; zobrist ^= Zobrist.PIECE[0][1][y*5+x]; }
-                    else if (board.charAt(y*5+x) == 'B') { bitboardPlayer[1] |= bit; bitboardKing[1] |= bit; zobrist ^= Zobrist.PIECE[1][1][y*5+x]; }
+                if (board.charAt(y*N+x) != '.') {
+                    if (board.charAt(y*N+x) == 'w') { bitboardPlayer[0] |= bit; zobrist ^= Zobrist.PIECE[0][0][y*N+x]; }
+                    else if (board.charAt(y*N+x) == 'b') { bitboardPlayer[1] |= bit; zobrist ^= Zobrist.PIECE[1][0][y*N+x]; }
+                    else if (board.charAt(y*N+x) == 'W') { bitboardPlayer[0] |= bit; bitboardKing[0] |= bit; zobrist ^= Zobrist.PIECE[0][1][y*N+x]; }
+                    else if (board.charAt(y*N+x) == 'B') { bitboardPlayer[1] |= bit; bitboardKing[1] |= bit; zobrist ^= Zobrist.PIECE[1][1][y*N+x]; }
                 }
             }
         }
@@ -118,33 +130,20 @@ class SearchState {
         cardBits |= cardUsedId + (nextCardId << cardUsedPos);
     }
 
-    /** Score for each position on the board. (Larger score is better.) */
-    private static final int SCORE_1 = 0b01010_10001_00000_10001_01010;
-    private static final int SCORE_2 = 0b00100_01010_10001_01010_00100;
-    private static final int SCORE_3 = 0b00000_00100_01010_00100_00000;
-    private static final int SCORE_4 = 0b00000_00000_00100_00000_00000;
+    public int score(int playerToEvaluate) {
+        return evaluator.score(playerToEvaluate);
+    }
 
-    int score(int playerToEvaluate) {
-        int pieceScore0 =
-                Integer.bitCount(bitboardPlayer[0] & SCORE_1) +
-                2 * Integer.bitCount(bitboardPlayer[0] & SCORE_2) +
-                3 * Integer.bitCount(bitboardPlayer[0] & SCORE_3) +
-                4 * Integer.bitCount(bitboardPlayer[0] & SCORE_4);
-
-        int pieceScore1 =
-                Integer.bitCount(bitboardPlayer[1] & SCORE_1) +
-                2 * Integer.bitCount(bitboardPlayer[1] & SCORE_2) +
-                3 * Integer.bitCount(bitboardPlayer[1] & SCORE_3) +
-                4 * Integer.bitCount(bitboardPlayer[1] & SCORE_4);
-
-        int materialDifference = Integer.bitCount(bitboardPlayer[0]) - Integer.bitCount(bitboardPlayer[1]);
-        int score = materialDifference*100 + (pieceScore0 - pieceScore1)*1;
-
-        return playerToEvaluate == 0 ? score : -score;
+    public String scoreExplanation() {
+        return evaluator.explain();
     }
 
     /** @return Whether the current board is a win for the given player. */
     boolean won(int player) {
         return bitboardKing[1-player] == 0 || bitboardKing[player] == GameDefinition.WIN_BITMASK[player];
+    }
+
+    public void printBoard() {
+        Output.printBoard(bitboardPlayer, bitboardKing);
     }
 }

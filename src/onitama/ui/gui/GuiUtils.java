@@ -12,9 +12,6 @@ import javafx.scene.layout.StackPane;
 
 /** Helper class with various GUI utilities. */
 public class GuiUtils {
-    /** Used as display name, e.g. "Red player to move". */
-    public static final String[] PLAYER_COLOR = { "Red", "Blue" };
-
     public static <T extends Region> T setSize(T region, int s) {
         return setSize(region, s, s);
     }

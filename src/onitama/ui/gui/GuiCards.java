@@ -60,11 +60,11 @@ class GuiCards {
     }
 
     void update() {
-        nextCard.paintCard(gui.gameState.cardState.nextCard, gui.playerToMove == 1);
+        nextCard.paintCard(gui.gameState.cardState.nextCard, gui.playerToMove == 1, false);
 
         for (int player = 0; player < 2; ++player)
             for (int card = 0; card < 2; ++card)
-                playerCards[player][card].paintCard(gui.gameState.cardState.playerCards[player][card], player == 1);
+                playerCards[player][card].paintCard(gui.gameState.cardState.playerCards[player][card], player == 1, player == gui.playerToMove);
     }
 
     void deselect() {

@@ -4,87 +4,54 @@ AI for the board game [Onitama](http://www.arcanewonders.com/game/onitama/). Rea
 [rules of the game here](http://www.arcanewonders.com/resources/Onitama_Rulebook.PDF).
 
 The AI uses a negamax search with alpha-beta pruning and several other techniques to limit the
-search space.
+search space. Below is a photo of the actual game, and a screenshot of the AI at play (click for higher
+resolution):
 
-<p align="center"><img src="http://www.arcanewonders.com/wp-content/uploads/2017/06/onitama-1.png"></p>
+<a href="http://www.arcanewonders.com/wp-content/uploads/2017/06/onitama-1.png">
+  <img src="http://www.arcanewonders.com/wp-content/uploads/2017/06/onitama-1.png" width="40%" align="middle">
+</a>
+<span style="display:inline-block;width:5%;"></span>
+<a href="screenshot-gui.png">
+  <img src="screenshot-gui.png" width="50%" align="middle">
+</a>
 
 ## Features implemented
 - [Negamax](https://chessprogramming.wikispaces.com/Negamax) with [alpha-beta pruning](https://chessprogramming.wikispaces.com/Alpha-Beta)
 - [Iterative deepening](https://chessprogramming.wikispaces.com/Iterative+Deepening)
 - [Principal variation search](https://chessprogramming.wikispaces.com/Principal%20Variation%20Search)
 - [Quiescence search](https://chessprogramming.wikispaces.com/Quiescence%20Search)
-- Dynamically sized, two-tier, [transposition table](https://chessprogramming.wikispaces.com/Transposition+Table)
+- Dynamically sized, two-tier, [transposition table](https://chessprogramming.wikispaces.com/Transposition+Table) ("TT")
 - [Zobrist hashing](https://chessprogramming.wikispaces.com/Zobrist+Hashing)
 - [Move ordering](https://chessprogramming.wikispaces.com/Move+Ordering): best move, winning moves, capture moves, [history heuristics](https://chessprogramming.wikispaces.com/History%20Heuristic)
-- [Evaluation function](https://chessprogramming.wikispaces.com/Evaluation): piece count, weighted piece positions
+- [Evaluation function](https://chessprogramming.wikispaces.com/Evaluation) optimized by [SPSA automated tuning](https://chessprogramming.wikispaces.com/SPSA)
 - [Bitboards](https://chessprogramming.wikispaces.com/Bitboards), for move generation and validation
-- [Pondering](https://chessprogramming.wikispaces.com/Pondering), with one thread per opponent move
-
-## Features tried
-- [Endgame table](https://chessprogramming.wikispaces.com/Endgame+Tablebases): Problematic since there are 131,040 combinations of 5 cards to play the game with
-- [Parallelization](https://chessprogramming.wikispaces.com/Parallel+Search) through multiple search threads with a shared TT: Scaled very badly
-- [Aspiration windows](https://chessprogramming.wikispaces.com/Aspiration+Windows): Did not improve search
-- Storing the quiescence search results in the TT: Slowed down search
-- Check evasion during quiescence search: More nodes searched, without finding a win faster
-- Two best moves: Did not reduce states visited
+- Multithreaded [pondering](https://chessprogramming.wikispaces.com/Pondering)
 
 ## Performance
 
-Below are some average statistics for various nominal search depths.
-For each depth, 25 searches were done from the initial board position,
-with different initial cards for each search (but the same set of cards for each depth tested).
-The transposition table fill rate was kept at < 75 %, so to not have any greater impact on the
-search times.
-The search is single-threaded, and a 2.6 GHz laptop was used for these tests.
+On a 2.6 GHz laptop, the AI evaluates around 4 million board states (i.e. moves) per second.
+As for how many moves ahead the AI can search, it varies greatly with the
+state of the game. From the initial board position, and still on a 2.6 GHz laptop with a single-threaded
+search, the AI typically searches a nominal depth of 12
+[plies](https://chessprogramming.wikispaces.com/Ply) fully in around 1 second, and 16-17 plies in
+1 minute. During the endgame, with 2 pieces per player, the AI commonly searches around 16
+plies in 1 second, and >30 plies in 1 minute.
+The branching factor (moves tried per state) also varies with the state of the game,
+but tends to be between 2 and 3 on average.
 
-|Depth|Max depth|Time|States|Quiescent|Branching|States / s|
-|:---:|:-------:|:--:|:----:|:-------:|:----:|:--------:|
-| 8 | 14.8 | 23 ms | 95.5 K | 21.2 % | 2.79 | 4.12 M |
-| 10 | 18.4 | 177 ms | 869 K | 22.2 % | 2.76 | 4.91 M |
-| 12 | 20.8 | 1.41 s | 6.87 M | 20.9 % | 2.76 | 4.88 M |
-| 14 | 23.0 | 9.60 s | 45.0 M | 18.7 % | 2.68 | 4.67 M |
-| 16 | 25.1 | 49.8 s | 213 M | 16.5 % | 2.55 | 4.27 M |
-| 18 | 27.1 | 195 s | 802 M | 14.6 % | 2.53 | 4.11 M |
-| 20 | 29.6 | 751 s | 2.90 G | 13.2 % | 2.54 | 3.87 M |
+Thanks to its two-tier property, the transposition table (TT) performs quite well even when filling up.
+As long as the fill rate is less then around 90 %, search times are fairly constant.
+Fill rates of 20 - 60 % often result in fastest search times. Even though the number of visited
+states could be slightly reduced by increasing the size of the TT, keeping it smaller leads to better cache locality.
 
-_**Depth:** Nominal depth searched_  
-_**Max depth:** Maximum depth analyzed including quiescence search_  
-_**Time:** Elapsed time to complete search_  
-_**States:** Total states (moves) evaluated during both nominal and quiescence search_  
-_**Quiescent:** Percent of states evaluated that were part of the quiescence search_  
-_**Branching:** Average branching factor, i.e. number of moves tried per state_  
-_**States / s:** Average number of states evaluated per second_  
-
-Thanks to its two-tier property, the transposition table performs quite well even when
-filling up. The following table shows the average number of states evaluated, and time
-elapsed, for a search to nominal depth 14, using different sizes for the TT.
-Note that the table is used for storing both score/node information and best moves
-(for move ordering). Each entry in the TT is 12 bytes.
-
-|TT size|Fill rate|Time|States|
-|:-----:|:-------:|:--:|:----:|
-| none | N/A | 85.9 s | 464 M |
-| 768 b | 100 % | 63.3 s | 341 M |
-| 3 KB | 100 % | 53.2 s | 285 M |
-| 24 KB | 100 % | 40.9 s | 205 M |
-| 192 KB | 100 % | 24.7 s | 127 M |
-| 768 KB | 100 % | 18.7 s | 96.5 M |
-| 3 MB | 100 % | 14.2 s | 70.8 M |
-| 6 MB |  99.99 % | 13.1 s | 61.7 M |
-| 12 MB | 99.6 % | 12.0 s | 54.9 M |
-| 24 MB | 95.8 % | 11.4 s | 50.8 M |
-| 48 MB | 84.8 % | 10.1 s | 46.2 M |
-| 192 MB | 45.0 % | 9.99 s | 45.6 M |
-| 768 MB | 14.2 % | 9.60 s | 45.0 M |
-
-## Example output
+## Sample analysis
 
 Below is some output from a game where the AI, after a single move from a human player, was able
-to guarantee a win in 19 plies (10 moves), after 44 seconds of computation on a
+to guarantee a win in 18+ plies (9+ moves), after 39 seconds of computation on a
 2.6 GHz laptop. Depth "18/24" means that the game was searched in full to a depth of 18 plies,
-and that the maximum depth analyzed (including quiescence search) was 24 plies. Looking more closely
-at the principal variation (list of best moves), we see that "Tiger c3-c1" puts the AI in the winning
-square and occurs at ply 19.
+and that the maximum depth analyzed (including quiescence search) was 24 plies. Due to hits in the
+transposition table, the move series is often cut off, meaning that we are not necessarily seeing
+the full series that lead to the win, hence 18+ plies.
 A score of ~100 means one piece advantage. 500 means victory. Smaller difference in scores means
 better positioning on the board. The output format is inspired by
 [Crafty](http://www.craftychess.com/documentation/craftydoc.html).
@@ -114,45 +81,45 @@ Player 2 cards: Tiger Ox
 Extra card: Rooster
 
  depth    time  score  best moves
- 1/ 2->   0.00     2   Tiger a5-a3
- 2/ 3->   0.00     1   Tiger a5-a3 | Crane d2-d3
- 3/ 6->   0.00     2   Ox d5-d4 | Crane d2-d3 | Tiger a5-a3
- 4/ 7->   0.00     3   Ox d5-d4 | Crane d2-d3 | Tiger a5-a3 | Ox d3-e3
- 5/ 8->   0.00     4   Ox d5-d4 | Crane d2-d3 | Tiger b5-b3 | Ox d3-e3 | Crane e5-e4
- 6/10->   0.00     2   Ox d5-d4 | Crane d2-d3 | Tiger b5-b3 | Ox d3-d2 | Rooster b3-c3 | Tiger a1-a3
- 7/12->   0.01     4   Ox c5-c4 | Crane d2-c1 | Rooster e5-d4 | Horse b1-b2 | Crane b5-b4 | Ox a1-a2 | Tiger d5-d3
- 8/14->   0.03     3   Ox d5-d4 | Horse d2-c2 | Rooster d4-c3 | Ox c2-d2 | Horse c5-c4 | Crane a1-a2 | Ox b5-b4 | Horse b1-b2
- 9/14->   0.05     5   Ox d5-d4 | Horse d2-c2 | Rooster d4-c3 | Ox c2-d2 | Horse e5-e4 | Rooster a1-b2 | Ox b5-b4 | Crane b2-c1 | Tiger a5-a3
-10/18->   0.19     6   Ox d5-d4 | Horse d2-c2 | Rooster d4-c3 | Ox c2-d2 | Horse e5-e4 | Crane a1-a2 | Ox e4-d4 | Rooster d2-e2 | Tiger b5-b3 | Horse d1-c1
-11/18->   0.32     6   Ox d5-d4 | Horse d2-c2 | Rooster d4-c3 | Ox c2-d2 | Horse e5-e4 | Crane a1-a2 | Ox e4-d4 | Rooster d2-e2 | Tiger b5-b3 | Horse d1-c1 | Crane b3-c4
-12/19->   1.05   105   Ox d5-d4 | Horse d2-c2 | Rooster d4-c3 | Ox c2-d2 | Horse e5-e4 | Crane b1-b2 | Ox c5-c4 | Horse b2-b3 | Tiger b5-b3 | Ox a1-a2 | Horse a5-a4 | Rooster a2-b3
-13/18     1.20   105   Ox d5-d4 | Horse d2-c2 | Rooster d4-c3 | Ox c2-d2 | Horse e5-e4 | Crane b1-b2 | Ox c5-c4 | Horse b2-b3 | Tiger b5-b3 | Ox a1-a2 | Horse a5-a4 | Rooster a2-b3 | Ox c3-b3
-13/18->   1.84   105   Ox d5-d4 | Horse d2-c2 | Rooster d4-c3 | Ox c2-d2 | Horse e5-e4 | Crane b1-b2 | Ox c5-c4 | Horse b2-b3 | Tiger b5-b3 | Ox a1-a2 | Horse a5-a4 | Rooster a2-b3 | Ox c3-b3
-14/21     2.59   105   Ox d5-d4 | Horse d2-c2 | Rooster d4-c3 | Ox c2-d2 | Horse e5-e4 | Crane b1-b2 | Ox c5-c4 | Horse b2-b3 | Tiger b5-b3 | Ox a1-a2 | Horse a5-a4 | Rooster a2-b3 | Ox e4-d4 | Horse d1-c1
-14/21->   5.50   105   Ox d5-d4 | Horse d2-c2 | Rooster d4-c3 | Ox c2-d2 | Horse e5-e4 | Crane b1-b2 | Ox c5-c4 | Horse b2-b3 | Tiger b5-b3 | Ox a1-a2 | Horse a5-a4 | Rooster a2-b3 | Ox e4-d4 | Horse d1-c1
-15/20     6.38   107   Ox d5-d4 | Horse d2-c2 | Rooster d4-c3 | Ox c2-d2 | Horse e5-e4 | Crane b1-b2 | Ox c5-c4 | Horse b2-b3 | Tiger b5-b3 | Ox a1-a2 | Crane b3-b2 | Tiger d1-d3 | Ox b2-a2 | Rooster d3-e4 | Tiger a5-a3
-15/21->   9.48   107   Ox d5-d4 | Horse d2-c2 | Rooster d4-c3 | Ox c2-d2 | Horse e5-e4 | Crane b1-b2 | Ox c5-c4 | Horse b2-b3 | Tiger b5-b3 | Ox a1-a2 | Crane b3-b2 | Tiger d1-d3 | Ox b2-a2 | Rooster d3-e4 | Tiger a5-a3
-16/23     14 s   107   Ox d5-d4 | Horse d2-c2 | Rooster d4-c3 | Ox c2-d2 | Horse e5-e4 | Crane b1-b2 | Ox c5-c4 | Horse b2-b3 | Tiger b5-b3 | Ox a1-b1 | Crane a5-a4 | Rooster d2-c1 | Ox e4-d4 | Crane d1-d2 | Horse a4-a3 | Tiger e1-e3
-16/23->   27 s   107   Ox d5-d4 | Horse d2-c2 | Rooster d4-c3 | Ox c2-d2 | Horse e5-e4 | Crane b1-b2 | Ox c5-c4 | Horse b2-b3 | Tiger b5-b3 | Ox a1-b1 | Crane a5-a4 | Rooster d2-c1 | Ox e4-d4 | Crane d1-d2 | Horse a4-a3 | Tiger e1-e3
-17/23     31 s   109   Ox d5-d4 | Horse d2-c2 | Rooster d4-c3 | Ox c2-d2 | Horse e5-e4 | Crane b1-b2 | Ox c5-c4 | Horse b2-b3 | Tiger b5-b3 | Ox a1-b1 | Crane b3-b2 | Rooster d2-e2 | Ox b2-b1 | Tiger e2-e4 | Rooster b1-c2 | Ox e1-e2 | Tiger a5-a3
-17/23->   44 s   109   Ox d5-d4 | Horse d2-c2 | Rooster d4-c3 | Ox c2-d2 | Horse e5-e4 | Crane b1-b2 | Ox c5-c4 | Horse b2-b3 | Tiger b5-b3 | Ox a1-b1 | Crane b3-b2 | Rooster d2-e2 | Ox b2-b1 | Tiger e2-e4 | Rooster b1-c2 | Ox e1-e2 | Tiger a5-a3
-18/24     44 s   500   Ox d5-d4 | Horse d2-c2 | Rooster d4-c3 | Ox c2-d2 | Horse e5-e4 | Crane b1-b2 | Ox e4-d4 | Rooster d2-e2 | Crane c5-c4 | Ox d1-d2 | Rooster c3-b2 | Crane e2-e3 | Tiger d4-d2 | Rooster e3-d2 | Ox c4-c3 | Tiger a1-a3 | Crane b2-a3 | Horse e1-e2 | Tiger c3-c1
-18/24->   44 s   500   Ox d5-d4 | Horse d2-c2 | Rooster d4-c3 | Ox c2-d2 | Horse e5-e4 | Crane b1-b2 | Ox e4-d4 | Rooster d2-e2 | Crane c5-c4 | Ox d1-d2 | Rooster c3-b2 | Crane e2-e3 | Tiger d4-d2 | Rooster e3-d2 | Ox c4-c3 | Tiger a1-a3 | Crane b2-a3 | Horse e1-e2 | Tiger c3-c1
+ 1/ 2->   0.00    38   Tiger a5-a3
+ 2/ 3->   0.01    19   Tiger a5-a3 | Crane d2-c1
+ 3/ 6->   0.01    29   Ox a5-a4 | Crane d2-c1 | Rooster e5-d4
+ 4/ 7->   0.01    25   Ox d5-d4 | Crane d2-d3 | Rooster e5-d5 | Ox d3-e3
+ 5/ 8->   0.02    40   Ox d5-d4 | Crane d2-d3 | Tiger a5-a3 | Ox d3-e3 | Crane e5-e4
+ 6/11->   0.02    24   Ox d5-d4 | Crane d2-d3 | Tiger a5-a3 | Horse d3-d2 | Crane a3-b4 | Tiger d1-d3
+ 7/11->   0.04    42   Ox d5-d4 | Crane d2-d3 | Tiger a5-a3 | Ox d3-d2 | Crane a3-b4 | Tiger d1-d3 | Ox e5-e4 | Crane d3-d4 | Rooster e4-d4
+ 8/14->   0.10    40   Ox d5-d4 | Horse d2-c2 | Rooster d4-c3 | Ox c2-d2 | Horse e5-e4 | Crane b1-b2 | Ox e4-d4 | Rooster d2-e3
+ 9/14->   0.15    54   Ox d5-d4 | Horse d2-c2 | Rooster d4-c3 | Ox c2-d2 | Horse e5-e4 | Crane b1-b2 | Ox e4-d4 | Rooster d2-e3 | Crane b5-b4
+10/17->   0.41    47   Ox d5-d4 | Horse d2-c2 | Rooster d4-c3 | Ox c2-d2 | Horse e5-e4 | Crane a1-a2 | Ox e4-d4 | Rooster d2-e3 | Crane d4-d3 | Horse e3-e2
+11/17->   0.58    48   Ox d5-d4 | Horse d2-c2 | Rooster d4-c3 | Ox c2-d2 | Horse e5-e4 | Crane b1-b2 | Ox e4-d4 | Rooster d2-e2 | Crane b5-b4 | Ox b2-c2 | Rooster d4-c4 | Crane c2-c3 | Ox c4-c3
+12/19->   1.25   121   Ox d5-d4 | Horse d2-c2 | Rooster d4-c3 | Ox c2-d2 | Horse e5-e4 | Crane b1-b2 | Ox c5-c4 | Horse b2-b3 | Tiger b5-b3 | Ox a1-a2 | Horse a5-a4 | Rooster a2-b3
+13/18     1.50   130   Ox d5-d4 | Horse d2-c2 | Rooster d4-c3 | Ox c2-d2 | Horse e5-e4 | Crane b1-b2 | Ox c5-c4 | Horse b2-b3 | Tiger b5-b3 | Ox a1-a2 | Horse b3-b4 | Tiger d1-d3 | Ox e4-d4 | Horse d3-d4 | Crane c3-d4
+13/18->   2.16   130   Ox d5-d4 | Horse d2-c2 | Rooster d4-c3 | Ox c2-d2 | Horse e5-e4 | Crane b1-b2 | Ox c5-c4 | Horse b2-b3 | Tiger b5-b3 | Ox a1-a2 | Horse b3-b4 | Tiger d1-d3 | Ox e4-d4 | Horse d3-d4 | Crane c3-d4
+14/20     2.94   134   Ox d5-d4 | Horse d2-c2 | Rooster d4-c3 | Ox c2-d2 | Horse e5-e4 | Crane b1-b2 | Ox c5-c4 | Horse b2-b3 | Tiger b5-b3 | Rooster d2-e2 | Crane c4-d5 | Tiger e1-e3 | Horse d5-d4 | Crane e3-e4 | Rooster d4-e4
+14/20->   4.94   134   Ox d5-d4 | Horse d2-c2 | Rooster d4-c3 | Ox c2-d2 | Horse e5-e4 | Crane b1-b2 | Ox c5-c4 | Horse b2-b3 | Tiger b5-b3 | Rooster d2-e2 | Crane c4-d5 | Tiger e1-e3 | Horse d5-d4 | Crane e3-e4 | Rooster d4-e4
+15/20     6.05   142   Ox d5-d4 | Horse d2-c2 | Rooster d4-c3 | Ox c2-d2 | Horse e5-e4 | Crane b1-b2 | Ox c5-c4 | Horse b2-b3 | Tiger b5-b3 | Ox d2-e2 | Crane e4-d5 | Rooster a1-b1 | Ox a5-a4 | Tiger b1-b3 | Rooster c4-b3
+15/20->   8.78   142   Ox d5-d4 | Horse d2-c2 | Rooster d4-c3 | Ox c2-d2 | Horse e5-e4 | Crane b1-b2 | Ox c5-c4 | Horse b2-b3 | Tiger b5-b3 | Ox d2-e2 | Crane e4-d5 | Rooster a1-b1 | Ox a5-a4 | Tiger b1-b3 | Rooster c4-b3
+16/23     13 s   145   Ox d5-d4 | Horse d2-c2 | Rooster d4-c3 | Ox c2-d2 | Horse e5-e4 | Crane b1-b2 | Ox c5-c4 | Horse b2-b3 | Tiger b5-b3 | Ox a1-b1 | Crane b3-b2 | Rooster d2-e2 | Ox b2-b1 | Tiger e2-e4 | Rooster a5-b5 | Crane e1-e2
+16/23->   22 s   145   Ox d5-d4 | Horse d2-c2 | Rooster d4-c3 | Ox c2-d2 | Horse e5-e4 | Crane b1-b2 | Ox c5-c4 | Horse b2-b3 | Tiger b5-b3 | Ox a1-b1 | Crane b3-b2 | Rooster d2-e2 | Ox b2-b1 | Tiger e2-e4 | Rooster a5-b5 | Crane e1-e2
+17/22     27 s   150   Ox d5-d4 | Horse d2-c2 | Rooster d4-c3 | Ox c2-d2 | Horse e5-e4 | Crane b1-b2 | Ox c5-c4 | Horse b2-b3 | Tiger b5-b3 | Ox a1-b1 | Horse b3-b2 | Rooster d2-e2 | Ox b2-b1 | Tiger e2-e4 | Rooster a5-b5 | Ox e1-e2 | Crane b5-b4
+17/23->   38 s   150   Ox d5-d4 | Horse d2-c2 | Rooster d4-c3 | Ox c2-d2 | Horse e5-e4 | Crane b1-b2 | Ox c5-c4 | Horse b2-b3 | Tiger b5-b3 | Ox a1-b1 | Horse b3-b2 | Rooster d2-e2 | Ox b2-b1 | Tiger e2-e4 | Rooster a5-b5 | Ox e1-e2 | Crane b5-b4
+18/24     39 s   500   Ox d5-d4 | Horse d2-c2 | Rooster d4-c3 | Ox c2-d2 | Horse e5-e4 | Crane b1-b2 | Ox e4-d4 | Rooster d2-e3 | Crane d4-d3 | Horse e3-e2 | Rooster c3-d4 | Crane b2-c1 | Horse c5-c4 | Rooster a1-b2 | Crane a5-a4 | Horse b2-b3 | Rooster d4-e4 | Crane d1-d2
+18/24->   39 s   500   Ox d5-d4 | Horse d2-c2 | Rooster d4-c3 | Ox c2-d2 | Horse e5-e4 | Crane b1-b2 | Ox e4-d4 | Rooster d2-e3 | Crane d4-d3 | Horse e3-e2 | Rooster c3-d4 | Crane b2-c1 | Horse c5-c4 | Rooster a1-b2 | Crane a5-a4 | Horse b2-b3 | Rooster d4-e4 | Crane d1-d2
 
 Nominal depth searched: 18
 Max depth searched: 24
 
-States evaluated: 187451090
-Quiescence states evaluated: 14778317
-Leaves evaluated: 113728736
+States evaluated: 147421142
+Quiescence states evaluated: 11463899
+Leaves evaluated: 88328487
 
-TT size: 268435456 entries (3072 MB)
-TT fill rate: 14.04 %
-TT hit rate: 36.32 % (27779445 / 76487599) -- 1: 0.00%  2: 1.83%  3: 39.85%  4: 15.66%  5: 19.53%  6: 17.46%  7: 5.48%  8: 25.91%  9: 7.01%  10: 32.02%  11: 8.55%  12: 37.94%  13: 11.60%  14: 41.44%  15: 16.73%  16: 42.39%  17: 23.86%  18: 37.15%
-Best move hit rate: 31.44 % (21089510 / 67085575) -- 1: 94.44%  2: 93.33%  3: 69.32%  4: 79.65%  5: 55.98%  6: 82.20%  7: 64.26%  8: 80.70%  9: 63.15%  10: 79.08%  11: 61.53%  12: 74.37%  13: 54.12%  14: 62.65%  15: 35.45%  16: 36.64%  17: 0.05%  18: 6.56%
+TT size: 67108864 entries (768 MB)
+TT fill rate: 38.66 %
+TT hit rate: 34.87 % (21176805 / 60730275) -- 1: 0.00%  2: 1.83%  3: 46.28%  4: 21.09%  5: 15.37%  6: 18.04%  7: 5.32%  8: 28.80%  9: 8.18%  10: 34.97%  11: 10.58%  12: 38.83%  13: 13.10%  14: 40.78%  15: 17.39%  16: 39.72%  17: 23.51%  18: 30.73%
+Best move hit rate: 29.68 % (16025325 / 53999535) -- 1: 94.44%  2: 93.33%  3: 75.97%  4: 85.52%  5: 67.49%  6: 85.76%  7: 70.75%  8: 84.01%  9: 67.89%  10: 80.43%  11: 63.96%  12: 73.42%  13: 53.01%  14: 60.94%  15: 33.82%  16: 31.97%  17: 0.07%  18: 7.26%
 
-Branching factor: 2.79 -- 1: 9.50  2: 2.56  3: 8.44  4: 1.62  5: 7.73  6: 1.25  7: 8.82  8: 1.23  9: 8.76  10: 1.14  11: 8.61  12: 1.12  13: 7.83  14: 1.18  15: 6.25  16: 1.24  17: 3.16  18: 0.63
-Quiescence branching factor:  19: 0.71  20: 0.62  21: 0.38  22: 0.34  23: 0.13  24: 0.00
+Branching factor: 2.73 -- 1: 9.50  2: 2.39  3: 9.28  4: 1.42  5: 8.72  6: 1.17  7: 9.71  8: 1.11  9: 9.43  10: 1.11  11: 8.80  12: 1.13  13: 7.60  14: 1.17  15: 6.08  16: 1.24  17: 3.08  18: 0.84
+Quiescence branching factor:  19: 0.81  20: 0.45  21: 0.50  22: 0.27  23: 0.27  24: 0.00
 ```
 
 ## Details on features implemented/tried
@@ -184,11 +151,11 @@ Each entry in the TT uses 96 bits (12 bytes), organized like this:
 It should be possible to save some space by combining the Zobrist key and the TT index. For example, if a 24 bit TT is used,
 we could use the lower 24 bits of the Zobrist key as the index into the TT, and only store the higher 40 bits in the table.
 Moreover, the Zobrist keys might not need to be 64 bits, they could be made shorter, at the cost of an increased risk of
-hash collisions. I have not experimented with this.
+hash collisions. This has not been experimented with.
 
 ##### Dynamic resizing
 This allows the TT to change size during the search, carrying over all stored entries. Experiments show that this works
-quite well (at least with a two-tiered TT); a search with a small TT that is later adjusted to a larger size, does not seem to suffer in the
+quite well (at least with a two-tiered TT); a search with a small TT that is later adjusted to a larger size does not seem to suffer in the
 long run from initially having started out small. This is used by the pondering feature, by starting many searches simultaneously with small TTs, and
 increasing the size gradually as some searches finish and there are fewer remaining.
 
@@ -224,26 +191,80 @@ move is needed.
 
 
 ### Evaluation function ([wiki](https://chessprogramming.wikispaces.com/Evaluation))
-First used `material difference * 100 + king distance difference`. Then changed to
-`material difference * 100 + weighted piece position difference`. This resulted in a 90 % win rate against
-an AI with the old function. That's a better improvement than increasing the search depth by 1! Adding
-[mobility](https://chessprogramming.wikispaces.com/Mobility)
-to the equation did not improve the win rate. The weights are as follows:
+The evaluation function is used at the end of the search, to heuristically assign a score to a given game state (board and cards).
+During earlier phases of the AI, an evaluation function that assigned a static, board-symmetrical score to each square was used,
+with higher scores assigned closer to the center of a board. This was a highly efficient function, since it could be performed
+with a few bit operations and multiplications, and seemed to work reasonably well. Experiments were performed adding
+[mobility](https://chessprogramming.wikispaces.com/Mobility) to the equation, but that did not improve the win rate.
 
-```
-+---+---+---+---+---+
-| 0 | 1 | 2 | 1 | 0 |
-+---+---+---+---+---+
-| 1 | 2 | 3 | 2 | 1 |
-+---+---+---+---+---+
-| 2 | 3 | 4 | 3 | 2 |
-+---+---+---+---+---+
-| 1 | 2 | 3 | 2 | 1 |
-+---+---+---+---+---+
-| 0 | 1 | 2 | 1 | 0 |
-+---+---+---+---+---+
-```
+##### The need for automated tuning
+It was noticed that modifying the scores assigned to each square could have a significant impact on the win rate, suggesting
+that there was room for improvement by finding the optimal score for each square. Moreover, there are more factors
+that could be considered than just board position: cards assigned, king position, phase of the game (for example, towards
+the end of the game, it might be more advantageous to move your king towards the opponent king's start square, which wins
+the game, and similarly defend your own start square). Figuring out the importance of all these parameters is hard to do
+manually, which is why one turns to [automated tuning](https://chessprogramming.wikispaces.com/Automated+Tuning).
 
+##### Optimization algorithm
+There are two parts to automated tuning. One is choosing which parameters to tune, and the other is the optimization
+algorithm to figure out the optimal value for each parameter. A few popular algorithms are
+[SPSA](https://chessprogramming.wikispaces.com/SPSA),
+[Stockfish's tuning method](https://chessprogramming.wikispaces.com/Stockfish%27s%20Tuning%20Method), and
+[local optimization](https://chessprogramming.wikispaces.com/Texel%27s%20Tuning%20Method#Pseudo%20Code).
+After experimentation with all three, SPSA (Simultaneous Perturbation Stochastic Approximation) was found to converge
+fastest. A good explanation of this algorithm can be found in
+[this paper](http://www.jhuapl.edu/spsa/PDF-SPSA/Spall_Implementation_of_the_Simultaneous.PDF).
+
+##### Parameters to tune
+The tricky part is finding the right set of parameters to tune. On the one hand adding as many parameters as possible
+for more granular scores, on the other hand not adding parameters unnecessarily, to keep the dimension count down and
+keep the evaluation function computationally cheap. Below are a few parameter sets tested, optimized with SPSA.
+
+|Parameter set|Parameters|Time|Elo (fixed plies)|Elo (fixed time)|
+|-------------|:--------:|-----------|-----------------|----------------|
+|Square + piece|30|4 hours|100 (64 % win)|70 (60 % win)|
+|Square + piece + card|440|48 hours|120 (66.5 % win)|70 (60 % win)|
+|As above, cards individually tuned|440|24 hours|135 (68.5 % win)|80 (61.5 % win)|
+|Square + piece + card + phase|880|48 hours|180 (74 % win)|100 (64 % win)|
+
+The time shows the elapsed time until convergence (using a 4 x 2.6 GHz CPU laptop), and the Elo differences are against the
+hand-tuned symmetrical evaluation function. To make the tuning more stable, the AIs search a fixed number of plies.
+For actual playing strength, a fixed time per move is most representative. The reason for the difference between the two is
+that evaluation functions differ in execution time, and slow evaluation functions can end up using a significant portion
+of the total search time. In particular, the evaluation functions based on card possession are difficult to update
+during move/unmove, and are thus calculated from scratch on each invocation.
+
+Running the best performing evaluation function (square + piece + card + phase) against the simpler
+30 parameter square + piece function, with a fixed time per move, the performance gain was 60 Elo (58.5 % win rate).
+
+##### Conclusion
+The parameter set that showed most promise was one with one score for each combination of board position, card,
+piece type (pawn / king), and game phase (middle / end game). For a horizontally self-symmetrical card, we need 15 scores for
+the board. For a pair of symmetrical cards, we need 25 scores (the cards use mirrored versions of the same scores).
+For the original set of 16 cards, with 2 game phases, 2 piece types, 8 self-symmetrical cards, and 4 symmetrical card pairs,
+there are thus 2 \* 2 \* (8 \* 15 + 4 \* 25) = 880 scores.
+
+To reduce the search space, cards take turns to be tuned individually, and all games are ensured to include the currently
+tuned card during evaluation. I.e., first we tune card 1 for 20 iterations, during which all games played have to
+include card 1, then we tune card 2 for 20 iterations, etc, and once all cards have been tuned, we start over with card 1.
+The reason that this makes sense is that during any game, only the scores for the 5 cards used will matter, so if
+all cards are tuned at the same time, the signal-to-noise ratio will be much lower. Experiments showed that this method
+led to a faster convergence rate.
+
+The tuning is quite CPU intensive, since thousands of AI vs AI games are played to evaluate each adjustment of scores.
+It typically takes 4 - 8 CPU cores between 24 and 48 hours to reach a convergent state.
+
+With a fixed time allowed per move, the performance gain over the previous
+hand-tuned evaluation function is around 100 Elo (64 % win rate).
+
+Future work includes identifying more parameters of interest to tune, and speeding up the evaluation function
+(difficult in Java).
+
+The video below shows how the scores evolved over time (high bar = favorable position on the board).
+
+<p align="center">
+<a href="https://maxbennedich.github.io/onitama-evaluation.mp4"><img src="onitama-evaluation.jpg" width="75%"></a>
+</p>
 
 ### Bitboards ([wiki](https://chessprogramming.wikispaces.com/Bitboards))
 Instead of representing the board as a 2D array,
@@ -297,7 +318,8 @@ count is small.)
 ### Pondering ([wiki](https://chessprogramming.wikispaces.com/Pondering))
 Most literature recommends a single search pondering just the most probable opponent move, assuming that this move will actually be
 played by the opponent 50+ % of the times ("ponder hit rate"). For this project, I have a assumed a much lower ponder hit rate, so instead a
-separate search is started for every possible opponent move, and once the opponent moves, all irrelevant search threads are terminated. This
+separate search is started for every possible opponent move, and once the opponent moves, all irrelevant search tasks are terminated. A fixed
+number of threads is used, and moves are searched an additional ply at a time (by iterative deepening). This
 feature uses dynamic TT resizing to make efficient use of the available memory.
 
 
@@ -309,7 +331,6 @@ threaded search.
 
 
 ## Future ideas / improvements
-- Better UI. In particular the pondering threads are cluttering the output now.
 - Clean up the test code. There is a lot of commented out and temporary code from one-off tests.
 - Compress the TT better. Store key and state together for better cache locality. There's room for improvement.
-- Better evaluation function. For example using machine learning and playing AIs against each other.
+- Write an [Alpha Zero](https://en.wikipedia.org/wiki/AlphaZero) version of the AI.

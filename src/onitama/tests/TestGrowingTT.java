@@ -3,6 +3,7 @@ package onitama.tests;
 import onitama.ai.Searcher;
 import onitama.model.Card;
 import onitama.model.CardState;
+import onitama.model.SearchParameters;
 import onitama.ui.console.UIUtils;
 
 public class TestGrowingTT {
@@ -44,7 +45,7 @@ public class TestGrowingTT {
         volatile boolean threadFinished = false;
 
         SearchThread(int ttBits) {
-            searcher = new Searcher(Searcher.MAX_DEPTH, ttBits, 1000000, true, UIUtils.CONSOLE_LOGGER, true);
+            searcher = new Searcher(new SearchParameters(ttBits, Searcher.MAX_NOMINAL_DEPTH, 1000000), UIUtils.CONSOLE_LOGGER, true);
 //            searcher.setState(PLAYER_0, BOARD_GAME, new CardState(new Card[][] {{Card.Monkey, Card.Frog}, {Card.Eel, Card.Crab}}, Card.Dragon));
             searcher.setState(PLAYER_1, BOARD_GAME_MAX_9, new CardState(new Card[][] {{Card.Ox, Card.Crane}, {Card.Horse, Card.Tiger}}, Card.Eel));
         }

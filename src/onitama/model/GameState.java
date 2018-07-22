@@ -3,12 +3,14 @@ package onitama.model;
 import static onitama.model.GameDefinition.N;
 import static onitama.model.GameDefinition.NN;
 
+import onitama.ai.SearchState;
+
 /** A more user friendly version of the {@link SearchState}, mainly used for the UI. */
 public class GameState {
     /** To prevent stuck games when AI plays itself. */
-    public static final int MAX_PLIES_BEFORE_DRAW = 198;
+    public static int MAX_PLIES_BEFORE_DRAW = 198;
 
-    private static final String INITIAL_BOARD =
+    public static final String INITIAL_BOARD =
             "bbBbb" +
             "....." +
             "....." +
@@ -25,7 +27,7 @@ public class GameState {
 
     public GameState(String board, CardState cardState) {
         this.board = board;
-        this.cardState = cardState;
+        this.cardState = new CardState(cardState.playerCards, cardState.nextCard); // defensive copy
         this.nrPliesPlayed = 0;
     }
 

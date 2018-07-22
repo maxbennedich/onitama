@@ -17,6 +17,6 @@ public class GuiDimension {
     public static final int CARD_CELL_SPACING = 2;
     public static final int SPACE_BETWEEN_PLAYER_CARDS = 40;
 
-    public static final int CONFIG_CARD_CELL_WIDTH = 9;
+    public static final int CONFIG_CARD_CELL_WIDTH = 10;
     public static final int CONFIG_CARD_CELL_SPACING = 1;
 }

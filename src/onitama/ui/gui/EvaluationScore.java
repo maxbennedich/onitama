@@ -39,16 +39,16 @@ class EvaluationScore {
     }
 
     void update(Move move, boolean negateScore) {
-        if (move.score != Searcher.NO_SCORE) {
-            int playerWon = gui.gameState.playerWon();
+        int playerWon = gui.gameState.playerWon();
 
+        if (move.score != Searcher.NO_SCORE || playerWon != -1) {
             int score, moves;
             if (playerWon != -1) {
                 score = Searcher.WIN_SCORE * (1 - playerWon * 2);
                 moves = 0;
             } else {
                 score = move.score * (gui.playerToMove * 2 - 1) * (negateScore ? -1 : 1);
-                moves = (move.scoreSearchDepth + 1) / 2;
+                moves = move.scoreSearchDepth / 2;
             }
 
             scoreText.setFill(Color.web(GuiColor.EVALUATION_SCORE[score > 0 ? 0 : score < 0 ? 1 : 2]));

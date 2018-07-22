@@ -5,6 +5,7 @@ import java.util.Arrays;
 import java.util.List;
 
 import onitama.model.Card;
+import onitama.model.Deck;
 
 /** Contains the current selection and assignment of cards in the configuration dialog. */
 class CardSelection {
@@ -62,5 +63,19 @@ class CardSelection {
     void deselect(int card) {
         playerByCard[card] = -1;
         cards.get(card).deselect();
+    }
+
+    private void disable(int card, boolean disable) {
+        cards.get(card).paintCard(Card.CARDS[card], false, !disable);
+    }
+
+    public void disableDeck(Deck deck, boolean disable) {
+        for (int card = 0; card < Card.NR_CARDS; ++card) {
+            if (Card.CARDS[card].deck == deck) {
+                disable(card, disable);
+                if (disable)
+                    deselect(card);
+            }
+        }
     }
 }

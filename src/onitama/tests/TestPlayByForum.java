@@ -1,6 +1,7 @@
 package onitama.tests;
 
 import onitama.ai.Searcher;
+import onitama.model.SearchParameters;
 import onitama.ui.console.Output;
 import onitama.ui.console.UIUtils;
 
@@ -82,7 +83,7 @@ public class TestPlayByForum {
             "..#.x";
 
     public static void main(String ... args) throws Exception {
-        Searcher searcher = new Searcher(MAX_DEPTH, TT_BITS, Integer.MAX_VALUE, true, UIUtils.CONSOLE_LOGGER, true);
+        Searcher searcher = new Searcher(new SearchParameters(TT_BITS, MAX_DEPTH, Integer.MAX_VALUE), UIUtils.CONSOLE_LOGGER, true);
 
         // new cards:
 //        public static Card Tiger = new Card("Tiger", new int[] {0,-2});

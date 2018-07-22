@@ -12,6 +12,7 @@ import onitama.model.CardState;
 import onitama.model.GameState;
 import onitama.model.Move;
 import onitama.model.Pair;
+import onitama.model.SearchParameters;
 import onitama.ui.console.Output;
 
 public class TestMultipleSearchThreads {
@@ -38,7 +39,7 @@ public class TestMultipleSearchThreads {
     void testThreadForEachMove() throws InterruptedException {
         int player = PLAYER_0;
 
-        Searcher searcher = new Searcher(Searcher.MAX_DEPTH, 1, 0, true, Utils.NO_LOGGER, false);
+        Searcher searcher = new Searcher(new SearchParameters(1, Searcher.MAX_NOMINAL_DEPTH, 0), Utils.NO_LOGGER, false);
         searcher.setState(player, BOARD_WIN_AT_13, new CardState(new Card[][] {{Card.Monkey, Card.Crane}, {Card.Tiger, Card.Crab}}, Card.Dragon));
         Output.printBoard(searcher);
         List<Pair<Move, GameState>> movesToTest = searcher.getAllMoves();
@@ -114,7 +115,7 @@ public class TestMultipleSearchThreads {
             this.board = board;
             this.cardState = cardState;
 
-            searcher = new Searcher(Searcher.MAX_DEPTH, ttBits, 1000000, true, Utils.NO_LOGGER, false);
+            searcher = new Searcher(new SearchParameters(ttBits, Searcher.MAX_NOMINAL_DEPTH, 1000000), Utils.NO_LOGGER, false);
             searcher.setState(1 - player, board, cardState);
         }
 

@@ -17,6 +17,8 @@ public class AIPlayer extends Player {
     /** Maximum amount of memory allocated for all ponder threads. */
     private static final long MAX_TT_PONDER_MEMORY = (long)(0.5 * 1024 * 1024 * 1024);
 
+    private static final double PONDER_CPU_UTILIZATION = 0.5;
+
     private final SearchParameters searchParameters;
 
     private final boolean ponder;
@@ -32,7 +34,7 @@ public class AIPlayer extends Player {
         this.ponder = ponder;
 
         if (ponder) {
-            ponderer = new Ponderer(player, MAX_TT_PONDER_MEMORY, logger);
+            ponderer = new Ponderer(player, MAX_TT_PONDER_MEMORY, PONDER_CPU_UTILIZATION, logger);
             ponderUIThread = new PonderUIThread(ponderer);
             ponderUIThread.setDaemon(true);
             ponderUIThread.start();
@@ -61,7 +63,7 @@ public class AIPlayer extends Player {
         }
 
         if (move == null) {
-            searcher = new Searcher(searchParameters.maxDepth, searchParameters.ttBits, searchParameters.maxSearchTimeMs, false, logger, true);
+            searcher = new Searcher(searchParameters, logger, true);
             searcher.setState(player, gameState.board, gameState.cardState);
             searcher.start();
             move = searcher.getBestMove();
@@ -102,14 +104,14 @@ public class AIPlayer extends Player {
         @Override public void run() {
             while (!shutdown) {
                 if (pondering) {
-                    List<PonderSearchStats> threadStats = ponderer.searchTasks.values().stream()
-                            .map(pair -> pair.p.getStats())
+                    List<PonderSearchStats> threadStats = ponderer.allSearchers.values().stream()
+                            .map(s -> s.getStats())
                             .sorted(Comparator.comparingInt((PonderSearchStats stats) -> stats.score).thenComparingInt(stats -> stats.depth))
                             .collect(Collectors.toList());
                     logger.logPonder(threadStats);
                 }
 
-                Utils.silentSleep(1000);
+                Utils.sleepAndLogException(1000);
             }
         }
     }

@@ -12,6 +12,7 @@ import onitama.model.CardState;
 import onitama.model.GameState;
 import onitama.model.Move;
 import onitama.model.Pair;
+import onitama.model.SearchParameters;
 
 /**
  * Features implemented/tried:
@@ -77,15 +78,14 @@ public class Searcher {
     private static final int TIME_OUT_SCORE = 998; // invalid score indicating that a time out occurred during recursion
     public static final int WIN_SCORE = 500;
 
-    public static final int MAX_DEPTH = 63;
+    public static final int MAX_NOMINAL_DEPTH = 52; // excluding quiescence search
+    static final int MAX_DEPTH = 63; // including quiescence search
 
     private static final int EXACT_SCORE = 0;
     private static final int LOWER_BOUND = 1;
     private static final int UPPER_BOUND = 2;
 
     private static final int INVALID_MOVE_HASH = NN;
-
-    private static final long YIELD_CHECK_FREQUENCY = 100000;
 
     private final TranspositionTable tt = new TranspositionTable(1);
 
@@ -97,9 +97,6 @@ public class Searcher {
     public final Stats stats;
     private final SearchTimer timer;
 
-    private boolean yield;
-    private long nextYieldCheckStateCount = YIELD_CHECK_FREQUENCY;
-
     private final int nominalDepth;
 
     private ILogger logger;
@@ -107,7 +104,7 @@ public class Searcher {
 
     private int initialPlayer;
 
-    private final SearchState state = new SearchState();
+    private final SearchState state;
 
     /** Triangular table of principal variations (best moves) for each ply. */
     private int[] pvTable = new int[MAX_DEPTH * (MAX_DEPTH + 1) / 2];
@@ -122,17 +119,18 @@ public class Searcher {
 
     private MoveGenerator[] moveGenerator = new MoveGenerator[MAX_DEPTH];
 
-    private int currentDepthSearched;
+    private int currentDepthSearched = 1;
 
-    public Searcher(int nominalDepth, int ttBits, long maxTimeMs, boolean priority, ILogger logger, boolean logEnabled) {
-        this.nominalDepth = nominalDepth;
-        this.initialTTBits = ttBits;
-        this.yield = priority;
+    public Searcher(SearchParameters searchParameters, ILogger logger, boolean logEnabled) {
+        this.nominalDepth = searchParameters.maxDepth;
+        this.initialTTBits = searchParameters.ttBits;
         this.logger = logger;
         this.logEnabled = logEnabled;
 
+        state = new SearchState(searchParameters.evaluator);
+
         stats = new Stats(tt);
-        timer = new SearchTimer(maxTimeMs, 10000);
+        timer = new SearchTimer(searchParameters.maxSearchTimeMs, 10000);
     }
 
     public void setState(int playerTurn, String board, CardState cardState) {
@@ -146,27 +144,37 @@ public class Searcher {
     }
 
     public int start() {
-        tt.resizeBlocking(initialTTBits);
+        Pair<Integer, Boolean> searchResult = new Pair<>(0, false);
 
-        timer.reset();
+        while (!searchResult.q)
+            searchResult = searchNextPly();
 
-        log(" depth    time  score  best moves");
+        return searchResult.p;
+    }
 
-        int score = NO_SCORE;
-        for (currentDepthSearched = 1; ; ++currentDepthSearched) {
-            stats.resetDepthSeen();
+    public Pair<Integer, Boolean> searchNextPly() {
+        if (currentDepthSearched == 1) {
+            tt.resizeBlocking(initialTTBits);
 
-            score = negamax(initialPlayer, currentDepthSearched, 0, 0, -INF_SCORE, INF_SCORE);
-            if (timer.timeIsUp(stats.getStatesEvaluated()))
-                break;
+            timer.reset();
 
-            logMove(true, score);
-
-            if (currentDepthSearched == nominalDepth || Math.abs(score) == WIN_SCORE)
-                break;
+            log(" depth    time  score  best moves");
         }
 
-        return score;
+        stats.resetDepthSeen();
+
+        int score = negamax(initialPlayer, currentDepthSearched, 0, 0, -INF_SCORE, INF_SCORE);
+        if (timer.timeIsUp(stats.getStatesEvaluated()))
+            return new Pair<>(score, true);
+
+        logMove(true, score);
+
+        if (currentDepthSearched == nominalDepth || Math.abs(score) == WIN_SCORE)
+            return new Pair<>(score, true);
+
+        ++currentDepthSearched;
+
+        return new Pair<>(score, false);
     }
 
     private int negamax(int player, int depth, int ply, int pvIdx, int alpha, int beta) {
@@ -177,7 +185,7 @@ public class Searcher {
 
         // depth extensions/reductions would go here
 
-        // end of nominal search depth -- do a queiscence search phase to play out any pending captures and wins
+        // end of nominal search depth -- do a quiescence search phase to play out any pending captures and wins
         if (depth == 0)
             return quiesce(player, ply, 0, pvIdx, alpha, beta);
 
@@ -187,8 +195,6 @@ public class Searcher {
 
         if (requestedTTResizeBits > 0 && tt.resize(requestedTTResizeBits))
             requestedTTResizeBits = 0;
-
-        yield(stats.getStatesEvaluated());
 
         int seenState = tt.get(state.zobrist);
         stats.ttLookup(ply);
@@ -330,20 +336,6 @@ public class Searcher {
         return alpha;
     }
 
-    /**
-     * If running more search threads than processors available, it's important to force the threads to yield regularly
-     * to prevent CPU starvation (which notably could affect the UI thread).
-     */
-    private void yield(long nrStatesVisited) {
-        // don't yield too often to prevent too frequent context switches (which hurts performance)
-        if (!yield || nrStatesVisited < nextYieldCheckStateCount)
-            return;
-
-        Thread.yield();
-
-        nextYieldCheckStateCount = nrStatesVisited + YIELD_CHECK_FREQUENCY;
-    }
-
     private int getMoveHash(int player, MoveGenerator mg, int move) {
         int cardUsed = state.firstCardLower(player) ? mg.cardUsed[move] : 1 - mg.cardUsed[move]; // 0 = lower card id, 1 = higher (card order may differ)
         return mg.oldPos[move] + (cardUsed << 5) + (mg.newPos[move] << 6);
@@ -357,7 +349,7 @@ public class Searcher {
         int cardId = pvTable[depth] & 7;
         int p = (pvTable[depth] >> 3) & 31;
         int n = pvTable[depth] >> 8;
-        return new Move(state.getCard(cardId), p%N, p/N, n%N, n/N, getScore(), getScoreSearchPVLineDepth(), includeStats ? stats.getCompactStats() : null);
+        return new Move(state.getCard(cardId), p%N, p/N, n%N, n/N, getScore(), getScoreSearchPVLineDepth(), stats.getStatesEvaluated() + stats.getQuiescenceStatesEvaluated(), includeStats ? stats.getCompactStats() : null);
     }
 
     /** The currently best scoring move (the first move of the principal variation). */
@@ -430,11 +422,6 @@ public class Searcher {
     /** Adjust the timeout for an ongoing search, to let it run for the additional period provided. */
     public void setRelativeTimeout(long remainingTimeMs) {
         timer.setRelativeTimeout(remainingTimeMs);
-    }
-
-    /** Set the priority for the searcher thread. Should be false for background threads, like ponder threads. */
-    public void setPriority(boolean priority) {
-        yield = !priority;
     }
 
     /** Releases the majority of memory held by this instance (such as the TT). Moves and non-TT related statistics is still available after this call. */

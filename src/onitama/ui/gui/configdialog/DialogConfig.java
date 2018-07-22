@@ -6,6 +6,8 @@ import onitama.ai.Searcher;
 import onitama.ai.TranspositionTable;
 import onitama.model.Card;
 import onitama.model.CardState;
+import onitama.model.Deck;
+import onitama.model.GameDefinition;
 import onitama.model.GameState;
 import onitama.model.SearchParameters;
 import onitama.ui.gui.GuiUtils;
@@ -24,6 +26,8 @@ class DialogConfig {
     boolean[] ponderBox = new boolean[2];
     String[] timeField = new String[2];
     String[] depthField = new String[2];
+
+    boolean[] decks = new boolean[Deck.NR_DECKS];
     int[] playerByCard = new int[Card.NR_CARDS];
 
     static final DialogConfig DEFAULT_CONFIG = new DialogConfig();
@@ -41,6 +45,9 @@ class DialogConfig {
             ponderBox[p] = false;
         }
 
+        for (int d = 0; d < decks.length; ++d)
+            decks[d] = d == 0; // select first deck (original cards)
+
         Arrays.fill(playerByCard, -1); // no card selection
     }
 
@@ -54,6 +61,9 @@ class DialogConfig {
             depthField[p] = dialog.playerConfig[p].depthField.getText();
             ponderBox[p] = dialog.playerConfig[p].ponderBox.isSelected();
         }
+
+        for (int d = 0; d < decks.length; ++d)
+            decks[d] = dialog.deckButton[d].isSelected();
 
         System.arraycopy(dialog.cardSelection.playerByCard, 0, playerByCard, 0, playerByCard.length);
     }
@@ -70,6 +80,11 @@ class DialogConfig {
 
             (isAI[p] ? dialog.playerConfig[p].ai : dialog.playerConfig[p].human).setSelected(true);
             dialog.playerConfig[p].disableAIConfig(!isAI[p]);
+        }
+
+        for (int d = 0; d < decks.length; ++d) {
+            dialog.deckButton[d].setSelected(decks[d]);
+            dialog.cardSelection.disableDeck(Deck.values()[d], !decks[d]);
         }
 
         for (int card = 0; card < playerByCard.length; ++card)
@@ -103,7 +118,7 @@ class DialogConfig {
             throw new InvalidConfigException("Either search time or search depth must be selected");
 
         int maxSearchTimeMs = timeBox[player] ? validate(timeField[player], 0, Integer.MAX_VALUE, "Invalid search time") : Integer.MAX_VALUE;
-        int maxDepth = depthBox[player] ? validate(depthField[player], 1, Searcher.MAX_DEPTH, "Invalid search depth") : Searcher.MAX_DEPTH;
+        int maxDepth = depthBox[player] ? validate(depthField[player], 1, Searcher.MAX_NOMINAL_DEPTH, "Invalid search depth") : Searcher.MAX_NOMINAL_DEPTH;
         int ttSize = TranspositionTable.getSuggestedSize(maxDepth, maxSearchTimeMs);
 
         return new SearchParameters(ttSize, maxDepth, maxSearchTimeMs);
@@ -136,11 +151,11 @@ class DialogConfig {
 
         // if no cards selected, return random cards
         if (nextCard == null && cardCount[0] == 0 && cardCount[1] == 0)
-            return CardState.Random();
+            return CardState.random(decks);
 
         for (int p = 0; p < 2; ++p)
             if (cardCount[p] != 2)
-                throw new InvalidConfigException("Select 2 cards for " + GuiUtils.PLAYER_COLOR[p].toLowerCase() + " player");
+                throw new InvalidConfigException("Select 2 cards for " + GameDefinition.PLAYER_COLOR[p].toLowerCase() + " player");
 
         if (nextCard == null)
             throw new InvalidConfigException("Select an extra card");

@@ -8,12 +8,13 @@ import onitama.common.Utils;
 import onitama.model.GameState;
 import onitama.model.Move;
 import onitama.model.Pair;
+import onitama.model.SearchParameters;
 
 public class AIUtils {
 
     public static List<Pair<Move, GameState>> getPossibleMoves(int player, GameState gameState) {
         // create a dummy searcher to extract the list of possible moves
-        Searcher searcher = new Searcher(Searcher.MAX_DEPTH, 1, 0, false, Utils.NO_LOGGER, false);
+        Searcher searcher = new Searcher(SearchParameters.DUMMY_SEARCHER, Utils.NO_LOGGER, false);
         searcher.setState(player, gameState.board, gameState.cardState);
         return searcher.getAllMoves();
     }

@@ -12,6 +12,7 @@ import javafx.scene.layout.GridPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Region;
 import onitama.ai.Searcher;
+import onitama.model.GameDefinition;
 import onitama.ui.gui.GuiUtils;
 
 /** Configuration for an individual player. Two instances of this class will be created. */
@@ -21,7 +22,7 @@ class PlayerConfig extends GridPane {
 
     CheckBox timeBox = new CheckBox("Max search time (ms)");
     TextField timeField = GuiUtils.setWidth(new TextField(), 60);
-    CheckBox depthBox = new CheckBox("Max search depth (1 - " + Searcher.MAX_DEPTH + ")");
+    CheckBox depthBox = new CheckBox("Max search depth (1 - " + Searcher.MAX_NOMINAL_DEPTH + ")");
     TextField depthField = GuiUtils.setWidth(new TextField(), 35);
     CheckBox ponderBox = new CheckBox("Ponder (search while opponent plays)");
 
@@ -31,7 +32,7 @@ class PlayerConfig extends GridPane {
         setHgap(10);
         setVgap(5);
 
-        add(new Label(GuiUtils.PLAYER_COLOR[player] + " player:"), 0, 0);
+        add(new Label(GameDefinition.PLAYER_COLOR[player] + " player:"), 0, 0);
 
         ToggleGroup group = new ToggleGroup();
         human.setToggleGroup(group);

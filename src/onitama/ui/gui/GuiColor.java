@@ -7,9 +7,10 @@ public class GuiColor {
     // [player / no piece][selected]
     public static final String BOARD_PIECE[][] = {{ "f40", "fb0" }, { "36f", "7cf" }, { "fff", "ccc" }};
 
-    public static final String CARD_CENTER = "555";
-    public static final String CARD_LEGAL_MOVE = "7a7";
-    public static final String CARD_NO_MOVE = "fff";
+    // [enabled / disabled]
+    public static final String[] CARD_CENTER = { "555", "444" };
+    public static final String[] CARD_LEGAL_MOVE = { "7a7", "696" };
+    public static final String[] CARD_NO_MOVE = { "fff", "ddd" };
 
     public static final String CARD_SELECTED_BACKGROUND = "ed0";
 

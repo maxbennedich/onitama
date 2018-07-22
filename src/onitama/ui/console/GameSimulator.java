@@ -2,7 +2,6 @@ package onitama.ui.console;
 
 import onitama.model.GameState;
 import onitama.model.Move;
-import onitama.model.Pair;
 import onitama.ui.Player;
 
 public class GameSimulator {
@@ -14,10 +13,28 @@ public class GameSimulator {
         this.gameState = gameState;
     }
 
-    /** @return Player that won the game, 0 for player 1, 1 for player 2, -1 for draw, and number of plies the game lasted. */
-    public Pair<Integer, Integer> play() {
+    public static class GameResult {
+        /** 0 for player 1, 1 for player 2, -1 for draw. */
+        public final int playerWon;
+
+        /** Number of plies the game lasted. */
+        public final int plies;
+
+        /** Total number of nodes evaluated. */
+        public final long nodesEvaluated;
+
+        GameResult(int playerWon, int plies, long nodesEvaluated) {
+            this.playerWon = playerWon;
+            this.plies = plies;
+            this.nodesEvaluated = nodesEvaluated;
+        }
+    }
+
+    public GameResult play() {
         Move prevMove = null;
         int playerWon = -1, ply;
+        long nodesEvaluated = 0;
+
         for (ply = 0; (playerWon = gameState.playerWon()) == -1 && !gameState.isDraw();) {
             Output.printGameState(gameState);
 
@@ -27,6 +44,7 @@ public class GameSimulator {
             gameState.move(player, move);
 
             prevMove = move;
+            nodesEvaluated += move.nodesEvaluated;
             ++ply;
         }
 
@@ -39,6 +57,6 @@ public class GameSimulator {
         else
             Output.printf("Player %d won at move %d (%d plies)!%n", playerWon + 1, ply/2, ply);
 
-        return new Pair<>(playerWon, ply);
+        return new GameResult(playerWon, ply, nodesEvaluated);
     }
 }

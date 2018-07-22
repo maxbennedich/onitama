@@ -27,7 +27,7 @@ public class Input {
             try {
                 @SuppressWarnings("resource") // don't close System.in
                 String response = new Scanner(System.in).next();
-                return response.equals("y") ? new AIPlayer(player, new SearchParameters(26, Searcher.MAX_DEPTH, 10000), true, UIUtils.CONSOLE_LOGGER) : new HumanPlayer(player, UIUtils.CONSOLE_LOGGER);
+                return response.equals("y") ? new AIPlayer(player, new SearchParameters(26, Searcher.MAX_NOMINAL_DEPTH, 10000), true, UIUtils.CONSOLE_LOGGER) : new HumanPlayer(player, UIUtils.CONSOLE_LOGGER);
             } catch (Exception e) {
                 System.out.println("Invalid input, try again");
             }

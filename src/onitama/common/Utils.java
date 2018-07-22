@@ -26,11 +26,38 @@ public class Utils {
         return String.format("%.0f G", n/1000000000.0);
     }
 
-    public static void silentSleep(long ms) {
+    public static String centerString(String s, int size) {
+        return centerString(s, size, ' ');
+    }
+
+    public static String centerString(String s, int size, char pad) {
+        if (s == null || size <= s.length())
+            return s;
+
+        StringBuilder sb = new StringBuilder(size);
+        for (int i = 0; i < (size - s.length()) / 2; i++) {
+            sb.append(pad);
+        }
+        sb.append(s);
+        while (sb.length() < size) {
+            sb.append(pad);
+        }
+        return sb.toString();
+    }
+
+    public static void sleepAndLogException(long ms) {
         try {
             Thread.sleep(ms);
-        } catch (InterruptedException e) {
-            // ignore
+        } catch (InterruptedException ie) {
+            ie.printStackTrace();
+        }
+    }
+
+    public static void joinThreadAndLogException(Thread thread) {
+        try {
+            thread.join();
+        } catch (InterruptedException ie) {
+            ie.printStackTrace();
         }
     }
 }

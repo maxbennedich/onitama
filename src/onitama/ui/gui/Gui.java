@@ -21,13 +21,15 @@ import onitama.ai.Searcher;
 import onitama.ai.pondering.PonderSearchStats;
 import onitama.common.ILogger;
 import onitama.common.Utils;
+import onitama.model.GameDefinition;
 import onitama.model.GameState;
 import onitama.model.Move;
+import onitama.model.SearchParameters;
 import onitama.ui.AIPlayer;
 import onitama.ui.gui.configdialog.GameConfig;
 import onitama.ui.gui.configdialog.GameConfigDialog;
 
-/** Main class for the GUI. Builds the GUI and contains the game simulation logic. */
+/* Main class for the GUI. Builds the GUI and contains the game simulation logic. */
 public class Gui extends Application {
     // GUI elements
     Scene scene;
@@ -39,8 +41,8 @@ public class Gui extends Application {
     EvaluationScore evaluationScore;
     TextArea moveLog;
 
-    TextArea log = new LogArea();;
-    TextArea ponderStats = new LogArea();;
+    TextArea log = new LogArea();
+    TextArea ponderStats = new LogArea();
     HBox logAndPonder = new HBox(0, log, ponderStats);
 
     // Game state fields
@@ -209,7 +211,7 @@ public class Gui extends Application {
             if (gameState.isDraw())
                 statusMessage.setMessage("Game drawn after " + gameState.nrMovesPlayed() + " moves");
         } else {
-            statusMessage.setMessage(GuiUtils.PLAYER_COLOR[playerWon] + " player won in " + gameState.nrMovesPlayed() + " moves");
+            statusMessage.setMessage(GameDefinition.PLAYER_COLOR[playerWon] + " player won in " + gameState.nrMovesPlayed() + " moves");
         }
 
         nextMove(move);
@@ -221,7 +223,10 @@ public class Gui extends Application {
         if (gameState.gameOver())
             return;
 
-        statusMessage.setMessage(GuiUtils.PLAYER_COLOR[playerToMove] + " player to move");
+        String message = GameDefinition.PLAYER_COLOR[playerToMove] + " player to move";
+        if (gameState.nrPliesPlayed <= 1 && !aiPlayer[playerToMove].enabled())
+            message += ". First select one of your two cards.";
+        statusMessage.setMessage(message);
 
         if (aiPlayer[playerToMove].enabled())
             startAISearchTask(lastMove);
@@ -268,7 +273,7 @@ public class Gui extends Application {
     void startScoreEvaluationTask() {
         Task<Move> scoreEvaluationTask = new Task<Move>() {
             @Override protected Move call() throws Exception {
-                Searcher searcher = new Searcher(Searcher.MAX_DEPTH, 20, 1000, false, Utils.NO_LOGGER, false);
+                Searcher searcher = new Searcher(new SearchParameters(20, Searcher.MAX_NOMINAL_DEPTH, 1000), Utils.NO_LOGGER, false);
                 searcher.setState(playerToMove, gameState.board, gameState.cardState);
                 searcher.start();
                 return searcher.getBestMove();

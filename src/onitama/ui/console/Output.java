@@ -9,6 +9,7 @@ import onitama.model.CardState;
 import onitama.model.GameDefinition;
 import onitama.model.GameState;
 import onitama.model.Pair;
+import onitama.model.SearchParameters;
 
 public class Output {
     private static final char[] MARKERS = new char[] {' ', 'r', 'b', 'R', 'B'};
@@ -36,7 +37,7 @@ public class Output {
             System.out.print(string);
     }
 
-    static void printBoard(int[] bitboardPlayer, int[] bitboardKing) {
+    public static void printBoard(int[] bitboardPlayer, int[] bitboardKing) {
         println("  +---+---+---+---+---+");
         for (int y = 0, bit = 1; y < N; ++y) {
             printf("%d |", N-y);
@@ -83,7 +84,7 @@ public class Output {
     }
 
     static void printGameState(GameState gameState) {
-        Searcher searcher = new Searcher(1, 0, 0, false, Utils.NO_LOGGER, false);
+        Searcher searcher = new Searcher(SearchParameters.DUMMY_SEARCHER, Utils.NO_LOGGER, false);
         searcher.setState(0, gameState.board, gameState.cardState);
         printBoard(searcher);
         println();

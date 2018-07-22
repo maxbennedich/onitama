@@ -10,6 +10,8 @@ import javafx.scene.control.Label;
 import javafx.scene.control.MenuItem;
 import javafx.scene.layout.GridPane;
 import javafx.scene.layout.Pane;
+import javafx.scene.text.Font;
+import onitama.model.GameDefinition;
 import onitama.ui.gui.BaseGuiCard;
 import onitama.ui.gui.GuiColor;
 import onitama.ui.gui.GuiDimension;
@@ -39,6 +41,7 @@ class ConfigCard extends BaseGuiCard {
         setSpacing(2);
         getChildren().add(board);
         getChildren().add(name = new Label(""));
+        name.setFont(new Font(11));
         setAlignment(Pos.CENTER);
 
         ContextMenu playerSelection = getPlayerSelection(card, configCards, false);
@@ -52,7 +55,7 @@ class ConfigCard extends BaseGuiCard {
     private ContextMenu getPlayerSelection(int card, CardSelection configCards, boolean includeDeselect) {
         MenuItem[] players = new MenuItem[includeDeselect ? 4 : 3];
         for (int p = 0; p < players.length; ++p) {
-            players[p] = new MenuItem(p == CardSelection.DESELECT ? "Deselect" : p == 2 ? "Extra card" : GuiUtils.PLAYER_COLOR[p] + " player");
+            players[p] = new MenuItem(p == CardSelection.DESELECT ? "Deselect" : p == 2 ? "Extra card" : GameDefinition.PLAYER_COLOR[p] + " player");
             final int player = p;
             players[p].setOnAction(event -> configCards.select(player, card));
         }

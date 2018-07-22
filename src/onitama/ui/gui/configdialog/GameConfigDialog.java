@@ -1,10 +1,12 @@
 package onitama.ui.gui.configdialog;
 
 import javafx.event.ActionEvent;
+import javafx.geometry.Pos;
 import javafx.scene.control.ButtonBar.ButtonData;
 import javafx.scene.control.ButtonType;
 import javafx.scene.control.Dialog;
 import javafx.scene.control.Label;
+import javafx.scene.control.ToggleButton;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
 import javafx.scene.text.Font;
@@ -12,6 +14,7 @@ import javafx.scene.text.FontPosture;
 import javafx.scene.text.Text;
 import javafx.scene.text.TextFlow;
 import onitama.model.Card;
+import onitama.model.Deck;
 import onitama.ui.gui.CenteredLabel;
 
 /** Main class for the confiugration dialog which is used to configure new games. */
@@ -20,6 +23,8 @@ public class GameConfigDialog extends Dialog<GameConfig> {
     private static DialogConfig currentConfig = DialogConfig.DEFAULT_CONFIG;
 
     PlayerConfig[] playerConfig = { new PlayerConfig(0), new PlayerConfig(1) };
+
+    ToggleButton[] deckButton = new ToggleButton[Deck.NR_DECKS];
     CardSelection cardSelection = new CardSelection();
 
     private static final String RULES =
@@ -37,21 +42,30 @@ public class GameConfigDialog extends Dialog<GameConfig> {
 
         VBox playerConfigBox = new VBox(30, playerConfig[0], playerConfig[1]);
 
-        Label cardSelectionLabel = new CenteredLabel("Select 2 cards per player, and the extra card.\nFor random cards, leave all unselected.");
+        Label cardSelectionLabel = new CenteredLabel("Select 2 cards per player, and the extra card. For random cards, leave all unselected.");
         cardSelectionLabel.setMaxWidth(Double.MAX_VALUE);
 
-        VBox cardConfig = new VBox(10, cardSelectionLabel);
-        HBox cardRow = new HBox(20);
+        HBox deckRow = new HBox(20);
+        deckRow.setAlignment(Pos.CENTER);
+        for (Deck deck : Deck.values()) {
+            int id = deck.ordinal();
+            deckButton[id] = new ToggleButton(deck.name);
+            deckButton[id].setOnAction(event -> clickDeckButton(deck));
+            deckRow.getChildren().add(deckButton[id]);
+        }
+
+        VBox cardConfig = new VBox(10, cardSelectionLabel, deckRow);
+        HBox cardRow = new HBox(15);
 
         for (int c = 0; c < Card.NR_CARDS; ++c) {
             ConfigCard cc = new ConfigCard(c, this, cardSelection);
             cardSelection.cards.add(cc);
-            cc.paintCard(Card.CARDS[c], false);
+            cc.paintCard(Card.CARDS[c], false, true);
             cardRow.getChildren().add(cc);
 
-            if (((c+1) % 4) == 0 || c == Card.NR_CARDS - 1) {
+            if (((c+1) % 8) == 0 || c == Card.NR_CARDS - 1) {
                 cardConfig.getChildren().add(cardRow);
-                cardRow = new HBox(20);
+                cardRow = new HBox(15);
             }
         }
 
@@ -82,5 +96,24 @@ public class GameConfigDialog extends Dialog<GameConfig> {
                 return null;
             return (currentConfig = new DialogConfig(this)).getGameConfig();
         });
+    }
+
+    private void clickDeckButton(Deck deck) {
+        boolean disable = !deckButton[deck.ordinal()].isSelected();
+
+        if (disable) {
+            // make sure we have at least 5 selectable cards, otherwise disallow disabling the deck
+            int selectableCardCount = 0;
+            for (int i = 0; i < Deck.NR_DECKS; ++i)
+                if (deckButton[i].isSelected())
+                    selectableCardCount += Deck.values()[i].cards.size();
+
+            if (selectableCardCount < 5) {
+                deckButton[deck.ordinal()].setSelected(true);
+                return;
+            }
+        }
+
+        cardSelection.disableDeck(deck, disable);
     }
 }

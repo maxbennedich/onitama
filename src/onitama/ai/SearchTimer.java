@@ -12,8 +12,8 @@ class SearchTimer {
     private volatile boolean requestSuspension = false;
     private volatile boolean suspended = false;
 
-    private final Object SUSPENSION_REQUESTED_LOCK = new Object();
-    private final Object SUSPENDED_LOCK = new Object();
+    private final Object suspensionRequestedLock = new Object();
+    private final Object suspendedLock = new Object();
 
     /** Check for time-out every this number of states, to prevent calling System.currentTimeMillis() for every node. */
     private final long timeoutCheckFrequency;
@@ -49,14 +49,14 @@ class SearchTimer {
         if (requestSuspension) {
             // let caller know that we are suspended
             suspended = true;
-            synchronized (SUSPENSION_REQUESTED_LOCK) {
-                SUSPENSION_REQUESTED_LOCK.notifyAll();
+            synchronized (suspensionRequestedLock) {
+                suspensionRequestedLock.notifyAll();
             }
 
             // wait until resumed
-            synchronized (SUSPENDED_LOCK) {
+            synchronized (suspendedLock) {
                 while (requestSuspension) {
-                    try { SUSPENDED_LOCK.wait(); }
+                    try { suspendedLock.wait(); }
                     catch (InterruptedException ignore) { }
                 }
             }
@@ -69,9 +69,9 @@ class SearchTimer {
         requestSuspension = true;
 
         // wait for the thread to actually suspend itself
-        synchronized (SUSPENSION_REQUESTED_LOCK) {
+        synchronized (suspensionRequestedLock) {
             while (!suspended) {
-                try { SUSPENSION_REQUESTED_LOCK.wait(); }
+                try { suspensionRequestedLock.wait(); }
                 catch (InterruptedException ignore) { }
             }
         }
@@ -79,8 +79,8 @@ class SearchTimer {
 
     void resume() {
         requestSuspension = false;
-        synchronized (SUSPENDED_LOCK) {
-            SUSPENDED_LOCK.notifyAll();
+        synchronized (suspendedLock) {
+            suspendedLock.notifyAll();
         }
     }
 

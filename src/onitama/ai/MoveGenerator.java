@@ -48,7 +48,7 @@ class MoveGenerator {
     private int bestMoveOldPos, bestMoveCard, bestMoveNewPos;
 
     private final SearchState state;
-    private final SearchState prevState = new SearchState();
+    private final SearchState prevState = new SearchState(state -> null); // no evaluation will take place for this instance
 
     private final long[][][] historyTable;
 
