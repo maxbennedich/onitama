@@ -1,6 +1,8 @@
 package onitama.model;
 
 import static onitama.model.Deck.Original;
+import static onitama.model.Deck.Promo;
+import static onitama.model.Deck.SenseisPath;
 import static onitama.model.GameDefinition.N;
 import static onitama.model.GameDefinition.NN;
 
@@ -22,7 +24,7 @@ public enum Card {
     Ox(Original, new int[] {0,-1, 1,0, 0,1}, Horse),
     Cobra(Original, new int[] {-1,0, 1,1, 1,-1}, Eel),
 
-/*    Giraffe(SenseisPath, new int[] {-2,-1, 2,-1, 0,1}),
+    Giraffe(SenseisPath, new int[] {-2,-1, 2,-1, 0,1}),
     Kirin(SenseisPath, new int[] {-1,-2, 1,-2, 0,2}),
     Phoenix(SenseisPath, new int[] {-1,-1, 1,-1, -2,0, 2,0}),
     Turtle(SenseisPath, new int[] {-2,0, 2,0, -1,-1, 1,-1}),
@@ -40,7 +42,7 @@ public enum Card {
     Sable(SenseisPath, new int[] {1,-1, -2,0, -1,1}, Otter),
 
     Sheep(Promo, new int[] {-1,-1, 1,0, 0,1}),
-    Goat(Promo, new int[] {1,-1, -1,0, 0,1}, Sheep),*/
+    Goat(Promo, new int[] {1,-1, -1,0, 0,1}, Sheep),
     ;
 
     public static final int NR_CARDS;

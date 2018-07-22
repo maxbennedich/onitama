@@ -4,6 +4,8 @@ import static onitama.model.GameDefinition.NN;
 import static onitama.model.GameDefinition.NR_PIECE_TYPES;
 import static onitama.model.GameDefinition.NR_PLAYERS;
 
+import java.util.HashMap;
+
 import onitama.ai.SearchState;
 import onitama.common.Utils;
 import onitama.model.Card;
@@ -27,7 +29,7 @@ import onitama.model.GameDefinition;
  * the score during the move / unmove.
  */
 public class PstEvaluator extends Evaluator {
-    private static final short[] PST = optimizePst(PieceSquareTables.CARD_PHASE_PIECE_POSITION_RAW_SCORES);
+    private static final short[] PST = optimizePst(PieceSquareTables.CARD_PHASE_PIECE_POSITION_RAW_SCORES_ORIGINAL_CARDS);
 
     private static final int NR_PHASES = 7;
 
@@ -148,15 +150,22 @@ public class PstEvaluator extends Evaluator {
      * Convert a [card][phase][piece][position] double PST (output from tuner) to an optimized PST for use with this evaluator.
      * See {@link PstEvaluator} for details on the optimizations done.
      */
-    private static short[] optimizePst(double[][][][] pst) {
+    private static short[] optimizePst(HashMap<Card, double[][][]> pst) {
         short[] optimized = new short[NR_PHASES * Card.NR_CARDS * NR_PIECE_TYPES * NN];
 
         for (int a = 0; a < Card.NR_CARDS; ++a) {
+            Card card = Card.CARDS[a];
+            double[][][] cardPst = pst.get(card);
+            if (cardPst == null) {
+                System.out.printf("WARNING: The piece square table does not contain a table for card %s. Use SpsaTuner to train a PST for all cards! Falling back to default table.\n", card);
+                cardPst = new double[][][] {{ PieceSquareTables.CENTER_PRIORITY, PieceSquareTables.CENTER_PRIORITY }, { PieceSquareTables.CENTER_PRIORITY, PieceSquareTables.CENTER_PRIORITY }};
+            }
+
             for (int phase = 0; phase < NR_PHASES; ++phase) {
                 for (int c = 0; c < NR_PIECE_TYPES; ++c) {
                     for (int d = 0; d < NN; ++d) {
-                        double mg = pst[a][0][c][d];
-                        double eg = pst[a][1][c][d];
+                        double mg = cardPst[0][c][d];
+                        double eg = cardPst[1][c][d];
                         double p = phase / 6.0;
 
                         int v = (int)Math.round(((p * mg + (1 - p) * eg) * FIXED_POINT_MULTIPLIER));

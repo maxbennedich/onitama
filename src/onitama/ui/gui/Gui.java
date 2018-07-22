@@ -60,7 +60,7 @@ public class Gui extends Application {
 
         @Override public void logPonder(List<PonderSearchStats> threadStats) {
             Platform.runLater(() -> {
-                StringBuilder sb = new StringBuilder("Score Move          Ply  States\n");
+                StringBuilder sb = new StringBuilder("Score Move           Ply  States\n");
                 threadStats.forEach(stats -> sb.append(stats.stats + "\n"));
                 ponderStats.setText(sb.toString());
             });

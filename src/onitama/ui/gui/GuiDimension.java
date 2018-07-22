@@ -4,8 +4,8 @@ import static onitama.model.GameDefinition.N;
 
 /** Helper class with various hard coded GUI dimensions (such as the move log window that needs to be a certain width to fit move strings). */
 public class GuiDimension {
-    public static final int MOVE_LOG_WIDTH = 260;
-    public static final int PONDER_STATS_WIDTH = 235;
+    public static final int MOVE_LOG_WIDTH = 270;
+    public static final int PONDER_STATS_WIDTH = 245;
     public static final int LOG_HEIGHT = 325;
 
     public static final int BOARD_CELL_WIDTH = 60;
