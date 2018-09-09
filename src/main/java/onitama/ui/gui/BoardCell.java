@@ -9,7 +9,7 @@ import onitama.model.GameState.CellType;
 /** An individual cell element displayed in the GUI. Part of a {@link GameBoard}. */
 class BoardCell extends StackPane {
     /** Used to indicate the main pawn. */
-    static Image STAR = GuiUtils.loadImageOrDie("star.png");
+    static Image STAR = new Image(Gui.class.getResourceAsStream("star.png"));
 
     final Gui gui;
     final int x;

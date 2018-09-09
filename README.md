@@ -18,8 +18,7 @@ resolution):
 ## Running
 
 ```
-javac -cp src src/onitama/ui/Onitama.java
-java -cp src onitama/ui/Onitama
+gradle run
 ```
 
 Requires Java 8.
