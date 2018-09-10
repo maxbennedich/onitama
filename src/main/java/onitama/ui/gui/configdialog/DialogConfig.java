@@ -12,6 +12,9 @@ import onitama.model.GameState;
 import onitama.model.SearchParameters;
 import onitama.ui.gui.GuiUtils;
 
+import static onitama.model.GameDefinition.NR_PLAYERS;
+import static onitama.model.GameDefinition.CARDS_PER_PLAYER;
+
 /**
  * Represents the raw configuration from the game configuration dialog, without references to GUI elements.
  * Can be used for persisting the configuration.
@@ -20,12 +23,15 @@ import onitama.ui.gui.GuiUtils;
  * class contains every setting represented in the dialog.
  */
 class DialogConfig {
-    boolean[] isAI = new boolean[2];
-    boolean[] timeBox = new boolean[2];
-    boolean[] depthBox = new boolean[2];
-    boolean[] ponderBox = new boolean[2];
-    String[] timeField = new String[2];
-    String[] depthField = new String[2];
+    boolean[] isAI = new boolean[NR_PLAYERS];
+    boolean[] timeBox = new boolean[NR_PLAYERS];
+    boolean[] depthBox = new boolean[NR_PLAYERS];
+    boolean[] ponderBox = new boolean[NR_PLAYERS];
+    String[] timeField = new String[NR_PLAYERS];
+    String[] depthField = new String[NR_PLAYERS];
+
+    public int startingPlayer;
+    public int bottomPlayer;
 
     boolean[] decks = new boolean[Deck.NR_DECKS];
     int[] playerByCard = new int[Card.NR_CARDS];
@@ -45,6 +51,9 @@ class DialogConfig {
             ponderBox[p] = false;
         }
 
+        startingPlayer = 0;
+        bottomPlayer = 0;
+
         for (int d = 0; d < decks.length; ++d)
             decks[d] = d == 0; // select first deck (original cards)
 
@@ -53,7 +62,7 @@ class DialogConfig {
 
     /** Creates an instance from the settings in the supplied {@link GameConfigDialog}. No validation takes place at this point. */
     DialogConfig(GameConfigDialog dialog) {
-        for (int p = 0; p < 2; ++p) {
+        for (int p = 0; p < NR_PLAYERS; ++p) {
             isAI[p] = dialog.playerConfig[p].ai.isSelected();
             timeBox[p] = dialog.playerConfig[p].timeBox.isSelected();
             timeField[p] = dialog.playerConfig[p].timeField.getText();
@@ -61,6 +70,9 @@ class DialogConfig {
             depthField[p] = dialog.playerConfig[p].depthField.getText();
             ponderBox[p] = dialog.playerConfig[p].ponderBox.isSelected();
         }
+
+        startingPlayer = dialog.startingPlayer[0].isSelected() ? 0 : 1;
+        bottomPlayer = dialog.bottomPlayer[0].isSelected() ? 0 : 1;
 
         for (int d = 0; d < decks.length; ++d)
             decks[d] = dialog.deckButton[d].isSelected();
@@ -70,7 +82,7 @@ class DialogConfig {
 
     /** Populates the supplied {@link GameConfigDialog} with the settings in this instance. */
     void populateDialog(GameConfigDialog dialog) {
-        for (int p = 0; p < 2; ++p) {
+        for (int p = 0; p < NR_PLAYERS; ++p) {
             dialog.playerConfig[p].ai.setSelected(isAI[p]);
             dialog.playerConfig[p].timeBox.setSelected(timeBox[p]);
             dialog.playerConfig[p].timeField.setText(timeField[p]);
@@ -80,6 +92,9 @@ class DialogConfig {
 
             (isAI[p] ? dialog.playerConfig[p].ai : dialog.playerConfig[p].human).setSelected(true);
             dialog.playerConfig[p].disableAIConfig(!isAI[p]);
+
+            dialog.startingPlayer[p].setSelected(startingPlayer == p);
+            dialog.bottomPlayer[p].setSelected(bottomPlayer == p);
         }
 
         for (int d = 0; d < decks.length; ++d) {
@@ -97,12 +112,15 @@ class DialogConfig {
         GameConfig gameConfig = new GameConfig();
 
         try {
-            for (int p = 0; p < 2; ++p) {
+            for (int p = 0; p < NR_PLAYERS; ++p) {
                 if (gameConfig.isAI[p] = isAI[p]) {
                     gameConfig.searchParameters[p] = getSearchParameters(p);
                     gameConfig.ponder[p] = ponderBox[p];
                 }
             }
+
+            gameConfig.startingPlayer = startingPlayer;
+            gameConfig.bottomPlayer = bottomPlayer;
 
             gameConfig.gameState = new GameState(getCardState());
         } catch (InvalidConfigException ice) {
@@ -137,7 +155,7 @@ class DialogConfig {
     }
 
     private CardState getCardState() throws InvalidConfigException {
-        Card[][] playerCards = new Card[2][2];
+        Card[][] playerCards = new Card[NR_PLAYERS][CARDS_PER_PLAYER];
         int[] cardCount = { 0, 0 };
         Card nextCard = null;
 
@@ -153,7 +171,7 @@ class DialogConfig {
         if (nextCard == null && cardCount[0] == 0 && cardCount[1] == 0)
             return CardState.random(decks);
 
-        for (int p = 0; p < 2; ++p)
+        for (int p = 0; p < NR_PLAYERS; ++p)
             if (cardCount[p] != 2)
                 throw new InvalidConfigException("Select 2 cards for " + GameDefinition.PLAYER_COLOR[p].toLowerCase() + " player");
 

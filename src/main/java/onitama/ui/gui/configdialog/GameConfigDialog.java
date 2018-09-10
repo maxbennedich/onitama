@@ -2,11 +2,9 @@ package onitama.ui.gui.configdialog;
 
 import javafx.event.ActionEvent;
 import javafx.geometry.Pos;
+import javafx.scene.control.*;
 import javafx.scene.control.ButtonBar.ButtonData;
-import javafx.scene.control.ButtonType;
-import javafx.scene.control.Dialog;
-import javafx.scene.control.Label;
-import javafx.scene.control.ToggleButton;
+import javafx.scene.layout.GridPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
 import javafx.scene.text.Font;
@@ -15,6 +13,7 @@ import javafx.scene.text.Text;
 import javafx.scene.text.TextFlow;
 import onitama.model.Card;
 import onitama.model.Deck;
+import onitama.model.GameDefinition;
 import onitama.ui.gui.CenteredLabel;
 
 /** Main class for the confiugration dialog which is used to configure new games. */
@@ -23,6 +22,9 @@ public class GameConfigDialog extends Dialog<GameConfig> {
     private static DialogConfig currentConfig = DialogConfig.DEFAULT_CONFIG;
 
     PlayerConfig[] playerConfig = { new PlayerConfig(0), new PlayerConfig(1) };
+
+    ToggleButton[] startingPlayer = new ToggleButton[GameDefinition.NR_PLAYERS];
+    ToggleButton[] bottomPlayer = new ToggleButton[GameDefinition.NR_PLAYERS];
 
     ToggleButton[] deckButton = new ToggleButton[Deck.NR_DECKS];
     CardSelection cardSelection = new CardSelection();
@@ -40,7 +42,24 @@ public class GameConfigDialog extends Dialog<GameConfig> {
         ButtonType okButtonType = new ButtonType("Start game", ButtonData.OK_DONE);
         getDialogPane().getButtonTypes().add(okButtonType);
 
-        VBox playerConfigBox = new VBox(30, playerConfig[0], playerConfig[1]);
+        ToggleGroup startingPlayerGroup = new ToggleGroup();
+        ToggleGroup bottomPlayerGroup = new ToggleGroup();
+        for (int p = 0; p < GameDefinition.NR_PLAYERS; ++p) {
+            startingPlayer[p] = new ToggleButton(GameDefinition.PLAYER_COLOR[p]);
+            startingPlayer[p].setToggleGroup(startingPlayerGroup);
+            bottomPlayer[p] = new ToggleButton(GameDefinition.PLAYER_COLOR[p]);
+            bottomPlayer[p].setToggleGroup(bottomPlayerGroup);
+        }
+
+        GridPane additionalPlayerConfig = new GridPane();
+        additionalPlayerConfig.setHgap(10);
+        additionalPlayerConfig.setVgap(5);
+        additionalPlayerConfig.add(new Label("Starting player"), 0, 0);
+        additionalPlayerConfig.add(new HBox(5, startingPlayer[0], startingPlayer[1]), 1, 0);
+//        additionalPlayerConfig.add(new Label("Bottom player"), 0, 1);
+//        additionalPlayerConfig.add(new HBox(5, bottomPlayer[0], bottomPlayer[1]), 1, 1);
+
+        VBox playerConfigBox = new VBox(30, playerConfig[0], playerConfig[1], additionalPlayerConfig);
 
         Label cardSelectionLabel = new CenteredLabel("Select 2 cards per player, and the extra card. For random cards, leave all unselected.");
         cardSelectionLabel.setMaxWidth(Double.MAX_VALUE);

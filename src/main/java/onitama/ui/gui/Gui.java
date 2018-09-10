@@ -29,6 +29,8 @@ import onitama.ui.AIPlayer;
 import onitama.ui.gui.configdialog.GameConfig;
 import onitama.ui.gui.configdialog.GameConfigDialog;
 
+import static onitama.model.GameDefinition.NR_PLAYERS;
+
 /* Main class for the GUI. Builds the GUI and contains the game simulation logic. */
 public class Gui extends Application {
     // GUI elements
@@ -49,6 +51,7 @@ public class Gui extends Application {
     GameState gameState;
 
     int playerToMove;
+    int startingPlayer;
     GuiAIPlayer[] aiPlayer = { new GuiAIPlayer(), new GuiAIPlayer() };
 
     private ILogger logger = new ILogger() {
@@ -158,9 +161,9 @@ public class Gui extends Application {
         // prepare game state
         GameConfig gameConfig = optionalConfig.get();
 
-        playerToMove = 0;
+        playerToMove = startingPlayer = gameConfig.startingPlayer;
 
-        for (int p = 0; p < 2; ++p) {
+        for (int p = 0; p < NR_PLAYERS; ++p) {
             if (aiPlayer[p].enabled())
                 aiPlayer[p].stopSearch();
 
@@ -201,7 +204,7 @@ public class Gui extends Application {
         cards.update();
 
         String moveString = move.toFixedWidthString(capture);
-        if (player == 0)
+        if (player == startingPlayer)
             moveLog.appendText(String.format("%2d. %s", gameState.nrMovesPlayed(), moveString));
         else
             moveLog.appendText("  " + moveString + "\n");
