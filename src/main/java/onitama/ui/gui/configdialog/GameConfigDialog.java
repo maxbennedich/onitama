@@ -24,7 +24,6 @@ public class GameConfigDialog extends Dialog<GameConfig> {
     PlayerConfig[] playerConfig = { new PlayerConfig(0), new PlayerConfig(1) };
 
     ToggleButton[] startingPlayer = new ToggleButton[GameDefinition.NR_PLAYERS];
-    ToggleButton[] bottomPlayer = new ToggleButton[GameDefinition.NR_PLAYERS];
 
     ToggleButton[] deckButton = new ToggleButton[Deck.NR_DECKS];
     CardSelection cardSelection = new CardSelection();
@@ -43,12 +42,9 @@ public class GameConfigDialog extends Dialog<GameConfig> {
         getDialogPane().getButtonTypes().add(okButtonType);
 
         ToggleGroup startingPlayerGroup = new ToggleGroup();
-        ToggleGroup bottomPlayerGroup = new ToggleGroup();
         for (int p = 0; p < GameDefinition.NR_PLAYERS; ++p) {
             startingPlayer[p] = new ToggleButton(GameDefinition.PLAYER_COLOR[p]);
             startingPlayer[p].setToggleGroup(startingPlayerGroup);
-            bottomPlayer[p] = new ToggleButton(GameDefinition.PLAYER_COLOR[p]);
-            bottomPlayer[p].setToggleGroup(bottomPlayerGroup);
         }
 
         GridPane additionalPlayerConfig = new GridPane();
@@ -56,8 +52,6 @@ public class GameConfigDialog extends Dialog<GameConfig> {
         additionalPlayerConfig.setVgap(5);
         additionalPlayerConfig.add(new Label("Starting player"), 0, 0);
         additionalPlayerConfig.add(new HBox(5, startingPlayer[0], startingPlayer[1]), 1, 0);
-//        additionalPlayerConfig.add(new Label("Bottom player"), 0, 1);
-//        additionalPlayerConfig.add(new HBox(5, bottomPlayer[0], bottomPlayer[1]), 1, 1);
 
         VBox playerConfigBox = new VBox(30, playerConfig[0], playerConfig[1], additionalPlayerConfig);
 

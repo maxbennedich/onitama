@@ -31,7 +31,6 @@ class DialogConfig {
     String[] depthField = new String[NR_PLAYERS];
 
     public int startingPlayer;
-    public int bottomPlayer;
 
     boolean[] decks = new boolean[Deck.NR_DECKS];
     int[] playerByCard = new int[Card.NR_CARDS];
@@ -52,7 +51,6 @@ class DialogConfig {
         }
 
         startingPlayer = 0;
-        bottomPlayer = 0;
 
         for (int d = 0; d < decks.length; ++d)
             decks[d] = d == 0; // select first deck (original cards)
@@ -72,7 +70,6 @@ class DialogConfig {
         }
 
         startingPlayer = dialog.startingPlayer[0].isSelected() ? 0 : 1;
-        bottomPlayer = dialog.bottomPlayer[0].isSelected() ? 0 : 1;
 
         for (int d = 0; d < decks.length; ++d)
             decks[d] = dialog.deckButton[d].isSelected();
@@ -94,7 +91,6 @@ class DialogConfig {
             dialog.playerConfig[p].disableAIConfig(!isAI[p]);
 
             dialog.startingPlayer[p].setSelected(startingPlayer == p);
-            dialog.bottomPlayer[p].setSelected(bottomPlayer == p);
         }
 
         for (int d = 0; d < decks.length; ++d) {
@@ -120,7 +116,6 @@ class DialogConfig {
             }
 
             gameConfig.startingPlayer = startingPlayer;
-            gameConfig.bottomPlayer = bottomPlayer;
 
             gameConfig.gameState = new GameState(getCardState());
         } catch (InvalidConfigException ice) {

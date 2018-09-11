@@ -16,5 +16,4 @@ public class GameConfig {
     public boolean[] ponder = new boolean[NR_PLAYERS];
 
     public int startingPlayer;
-    public int bottomPlayer;
 }
