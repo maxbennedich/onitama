@@ -62,9 +62,9 @@ public class SearchState {
         for (int y = 0, bit = 1; y < N; ++y) {
             for (int x = 0; x < N; ++x, bit *= 2) {
                 if (board.charAt(y*N+x) != '.') {
-                    if (board.charAt(y*N+x) == 'w') { bitboardPlayer[0] |= bit; zobrist ^= Zobrist.PIECE[0][0][y*N+x]; }
+                    if (board.charAt(y*N+x) == 'r') { bitboardPlayer[0] |= bit; zobrist ^= Zobrist.PIECE[0][0][y*N+x]; }
                     else if (board.charAt(y*N+x) == 'b') { bitboardPlayer[1] |= bit; zobrist ^= Zobrist.PIECE[1][0][y*N+x]; }
-                    else if (board.charAt(y*N+x) == 'W') { bitboardPlayer[0] |= bit; bitboardKing[0] |= bit; zobrist ^= Zobrist.PIECE[0][1][y*N+x]; }
+                    else if (board.charAt(y*N+x) == 'R') { bitboardPlayer[0] |= bit; bitboardKing[0] |= bit; zobrist ^= Zobrist.PIECE[0][1][y*N+x]; }
                     else if (board.charAt(y*N+x) == 'B') { bitboardPlayer[1] |= bit; bitboardKing[1] |= bit; zobrist ^= Zobrist.PIECE[1][1][y*N+x]; }
                 }
             }

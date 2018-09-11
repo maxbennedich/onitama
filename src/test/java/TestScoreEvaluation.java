@@ -9,9 +9,9 @@ public class TestScoreEvaluation {
     static String BOARD =
             "..B.." +
             "...b." +
-            ".bbw." +
-            "wW..." +
-            ".w..w";
+            ".bbr." +
+            "rR..." +
+            ".r..r";
 
     public static void main(String ... args) throws Exception {
         SearchState state = new SearchState(s -> new PstEvaluator(s));

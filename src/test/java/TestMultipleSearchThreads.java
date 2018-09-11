@@ -25,8 +25,8 @@ public class TestMultipleSearchThreads {
             "b.Bbb" +
             "....." +
             ".b..." +
-            ".wwW." +
-            "w...w";
+            ".rrR." +
+            "r...r";
 
     public static void main(String ... args) throws Exception {
         new TestMultipleSearchThreads().testThreadForEachMove();

@@ -15,7 +15,7 @@ public class GameState {
             "....." +
             "....." +
             "....." +
-            "wwWww";
+            "rrRrr";
 
     public String board;
     public CardState cardState;
@@ -58,10 +58,10 @@ public class GameState {
      * Note: This method is meant for the UI only and as such is quite inefficient.
      */
     public int playerWon() {
-        if (board.charAt(N / 2) == 'W') return 0;
+        if (board.charAt(N / 2) == 'R') return 0;
         if (board.charAt(NN - 1 - (N / 2)) == 'B') return 1;
         if (board.indexOf('B') == -1) return 0;
-        if (board.indexOf('W') == -1) return 1;
+        if (board.indexOf('R') == -1) return 1;
         return -1;
     }
 
@@ -79,7 +79,7 @@ public class GameState {
 
     public CellType cellAt(int x, int y) {
         char c = board.charAt(y * N + x);
-        return c == '.' ? EMPTY : c == 'w' ? PLAYER_0 : c == 'b' ? PLAYER_1 : c == 'W' ? PLAYER_0_KING : PLAYER_1_KING;
+        return c == '.' ? EMPTY : c == 'r' ? PLAYER_0 : c == 'b' ? PLAYER_1 : c == 'R' ? PLAYER_0_KING : PLAYER_1_KING;
     }
 
     private static CellType EMPTY = new CellType(-1, false);

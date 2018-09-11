@@ -28,7 +28,7 @@ public class TestAllCards {
             "....." +
             "....." +
             "....." +
-            "wwWww";
+            "rrRrr";
 
     public static void main(String ... args) throws Exception {
         long totalTime = System.currentTimeMillis();

@@ -19,56 +19,56 @@ public class TestSingleSearch {
             "....." +
             "....." +
             "....." +
-            "wwWww";
+            "rrRrr";
 
     static String BOARD_WIN_AT_13 =
             "b.Bbb" +
             "....." +
             ".b..." +
-            ".wwW." +
-            "w...w";
+            ".rrR." +
+            "r...r";
 
     static String BOARD_WIN_AT_20 =
             "bbBbb" +
             "....." +
             "....." +
-            "...W." +
-            "ww.ww";
+            "...R." +
+            "rr.rr";
 
     static String BOARD_GAME =
             "....." +
             "..Bb." +
             "..b.." +
-            ".ww.." +
-            "...W.";
+            ".rr.." +
+            "...R.";
 
     static String BOARD_GAME_2 =
             "....." +
             "..Bb." +
-            "..w.." +
-            "..w.." +
-            "...W.";
+            "..r.." +
+            "..r.." +
+            "...R.";
 
     static String BOARD_GAME_MAX_9 =
             "b.B.." +
             "...bb" +
-            "..bw." +
-            "wW..w" +
-            ".w...";
+            "..br." +
+            "rR..r" +
+            ".r...";
 
     static String ARCANE_WONDERS_PHOTO =
             "b.Bb." +
             "..b.b" +
-            "...w." +
-            "w..W." +
-            ".w..w";
+            "...r." +
+            "r..R." +
+            ".r..r";
 
     static String ENDGAME =
             "B...." +
             "....b" +
             "....." +
             "....." +
-            ".W..w";
+            ".R..r";
 
     public static void main(String ... args) throws Exception {
         Searcher searcher = new Searcher(new SearchParameters(TT_BITS, MAX_DEPTH, 20000001), UIUtils.CONSOLE_LOGGER, true);

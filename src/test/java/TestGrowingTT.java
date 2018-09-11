@@ -14,15 +14,15 @@ public class TestGrowingTT {
             "....." +
             "..Bb." +
             "..b.." +
-            ".ww.." +
-            "...W.";
+            ".rr.." +
+            "...R.";
 
     static String BOARD_GAME_MAX_9 =
             "b.B.." +
             "...bb" +
-            "..bw." +
-            "wW..w" +
-            ".w...";
+            "..br." +
+            "rR..r" +
+            ".r...";
 
     public static void main(String ... args) throws Exception {
         int ttBits = 14;

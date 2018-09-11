@@ -81,8 +81,8 @@ public class Ponderer {
                 "b.Bbb" +
                 "....." +
                 ".b..." +
-                ".wwW." +
-                "w...w";
+                ".rrR." +
+                "r...r";
         CardState cards = new CardState(new Card[][] {{Card.Monkey, Card.Crane}, {Card.Tiger, Card.Crab}}, Card.Dragon);
         GameState gameState = new GameState(board, cards);
         ponderer.ponder(gameState);

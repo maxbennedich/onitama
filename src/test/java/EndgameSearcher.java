@@ -32,7 +32,7 @@ public class EndgameSearcher {
             "....." +
             "....." +
             "B...." +
-            "...W." +
+            "...R." +
             ".....";
 
     public static void main(String ... args) throws Exception {
@@ -60,7 +60,7 @@ public class EndgameSearcher {
         for (int wk = 0; wk < NN; ++wk) {
             for (int bk = 0; bk < NN; ++bk) {
                 if (bk == wk) continue;
-                board[wk] = 'W';
+                board[wk] = 'R';
                 board[bk] = 'B';
 
                 allBoards.add(new String(board));
@@ -76,10 +76,10 @@ public class EndgameSearcher {
                 if (bk == wk) continue;
                 for (int wp = 0; wp < NN; ++wp) {
                     if (wp == wk || wp == bk) continue;
-                    board[wk] = 'W';
+                    board[wk] = 'R';
                     board[bk] = 'B';
 
-                    board[wp] = 'w';
+                    board[wp] = 'r';
                     allBoards.add(new String(board));
                     board[wp] = 'b';
                     allBoards.add(new String(board));

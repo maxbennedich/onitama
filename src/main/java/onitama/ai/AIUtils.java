@@ -23,7 +23,7 @@ public class AIUtils {
         return new GameState(getBoard(state.bitboardPlayer, state.bitboardKing), state.getCardState());
     }
 
-    private static char[] BOARD_MARKERS = new char[] {' ', 'w', 'b', 'W', 'B'};
+    private static char[] BOARD_MARKERS = new char[] {' ', 'r', 'b', 'R', 'B'};
 
     private static String getBoard(int[] bitboardPlayer, int[] bitboardKing) {
         char[] board = new char[NN];

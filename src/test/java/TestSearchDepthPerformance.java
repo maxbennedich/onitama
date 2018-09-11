@@ -695,21 +695,21 @@ public class TestSearchDepthPerformance {
             "....." +
             "....." +
             "....." +
-            "wwWww";
+            "rrRrr";
 
     static String BOARD_WIN_AT_13 =
             "b.Bbb" +
             "....." +
             ".b..." +
-            ".wwW." +
-            "w...w";
+            ".rrR." +
+            "r...r";
 
     static String BOARD_CORNERS =
             "bb..." +
-            "B...w" +
-            "b...w" +
-            "b...W" +
-            "...ww";
+            "B...r" +
+            "b...r" +
+            "b...R" +
+            "...rr";
 
     static String[] BOARDS = {EMPTY_BOARD, BOARD_WIN_AT_13, BOARD_CORNERS};
 

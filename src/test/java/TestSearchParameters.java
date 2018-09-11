@@ -56,8 +56,8 @@ public class TestSearchParameters {
             "b.Bbb" +
             "....." +
             ".b..." +
-            ".wwW." +
-            "w...w";
+            ".rrR." +
+            "r...r";
 
     private static String TEST_FILE_NAME = "testdata.txt";
 
@@ -183,7 +183,7 @@ public class TestSearchParameters {
 
     private String getRandomBoard(Random rnd) {
         char[] board = ".........................".toCharArray();
-        char[] pieces = "BWbwbwbwbw".toCharArray();
+        char[] pieces = "BRbrbrbrbr".toCharArray();
 
         int nrPieces = rnd.nextBoolean() ? pieces.length : 2 + rnd.nextInt(pieces.length-2);
 
@@ -201,10 +201,10 @@ public class TestSearchParameters {
         char[] flipped = new char[N];
         for (int x = 0; x < N; ++x) {
             char c = board.charAt(x), f = c;
-            if (c == 'b') f = 'w';
-            else if (c == 'B') f = 'W';
-            else if (c == 'w') f = 'b';
-            else if (c == 'W') f = 'B';
+            if (c == 'b') f = 'r';
+            else if (c == 'B') f = 'R';
+            else if (c == 'r') f = 'b';
+            else if (c == 'R') f = 'B';
             flipped[N-1-x] = f;
         }
         return new String(flipped);
