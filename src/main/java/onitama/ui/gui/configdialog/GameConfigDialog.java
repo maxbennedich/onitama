@@ -15,6 +15,7 @@ import onitama.model.Card;
 import onitama.model.Deck;
 import onitama.model.GameDefinition;
 import onitama.ui.gui.CenteredLabel;
+import onitama.ui.gui.GuiUtils;
 
 /** Main class for the confiugration dialog which is used to configure new games. */
 public class GameConfigDialog extends Dialog<GameConfig> {
@@ -24,6 +25,7 @@ public class GameConfigDialog extends Dialog<GameConfig> {
     PlayerConfig[] playerConfig = { new PlayerConfig(0), new PlayerConfig(1) };
 
     ToggleButton[] startingPlayer = new ToggleButton[GameDefinition.NR_PLAYERS];
+    TextField initialBoard = GuiUtils.setWidth(new TextField(), 160);
 
     ToggleButton[] deckButton = new ToggleButton[Deck.NR_DECKS];
     CardSelection cardSelection = new CardSelection();
@@ -52,6 +54,8 @@ public class GameConfigDialog extends Dialog<GameConfig> {
         additionalPlayerConfig.setVgap(5);
         additionalPlayerConfig.add(new Label("Starting player"), 0, 0);
         additionalPlayerConfig.add(new HBox(5, startingPlayer[0], startingPlayer[1]), 1, 0);
+        additionalPlayerConfig.add(new Label("Initial board"), 0, 1);
+        additionalPlayerConfig.add(initialBoard, 1, 1);
 
         VBox playerConfigBox = new VBox(30, playerConfig[0], playerConfig[1], additionalPlayerConfig);
 

@@ -1,6 +1,9 @@
 package onitama.ui.gui.configdialog;
 
 import java.util.Arrays;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 import onitama.ai.Searcher;
 import onitama.ai.TranspositionTable;
@@ -30,7 +33,8 @@ class DialogConfig {
     String[] timeField = new String[NR_PLAYERS];
     String[] depthField = new String[NR_PLAYERS];
 
-    public int startingPlayer;
+    int startingPlayer;
+    String initialBoard;
 
     boolean[] decks = new boolean[Deck.NR_DECKS];
     int[] playerByCard = new int[Card.NR_CARDS];
@@ -51,6 +55,7 @@ class DialogConfig {
         }
 
         startingPlayer = 0;
+        initialBoard = "";
 
         for (int d = 0; d < decks.length; ++d)
             decks[d] = d == 0; // select first deck (original cards)
@@ -70,6 +75,7 @@ class DialogConfig {
         }
 
         startingPlayer = dialog.startingPlayer[0].isSelected() ? 0 : 1;
+        initialBoard = dialog.initialBoard.getText();
 
         for (int d = 0; d < decks.length; ++d)
             decks[d] = dialog.deckButton[d].isSelected();
@@ -91,6 +97,7 @@ class DialogConfig {
             dialog.playerConfig[p].disableAIConfig(!isAI[p]);
 
             dialog.startingPlayer[p].setSelected(startingPlayer == p);
+            dialog.initialBoard.setText(initialBoard);
         }
 
         for (int d = 0; d < decks.length; ++d) {
@@ -107,6 +114,8 @@ class DialogConfig {
     GameConfig getGameConfig() {
         GameConfig gameConfig = new GameConfig();
 
+        gameConfig.startingPlayer = startingPlayer;
+
         try {
             for (int p = 0; p < NR_PLAYERS; ++p) {
                 if (gameConfig.isAI[p] = isAI[p]) {
@@ -115,15 +124,33 @@ class DialogConfig {
                 }
             }
 
-            gameConfig.startingPlayer = startingPlayer;
-
-            gameConfig.gameState = new GameState(getCardState());
+            gameConfig.gameState = new GameState(getInitialBoard(), getCardState());
         } catch (InvalidConfigException ice) {
             GuiUtils.errorAlert(ice.getMessage());
             return null;
         }
 
         return gameConfig;
+    }
+
+    private String getInitialBoard() throws InvalidConfigException {
+        if (initialBoard.isEmpty())
+            return GameState.INITIAL_BOARD;
+
+        Map<Character, Integer> counts = new HashMap<>();
+        for (char c : initialBoard.toCharArray())
+            counts.merge(c, 1, Integer::sum);
+
+        int dotCount = counts.getOrDefault('.', 0);
+        int rCount = counts.getOrDefault('r', 0);
+        int RCount = counts.getOrDefault('R', 0);
+        int bCount = counts.getOrDefault('b', 0);
+        int BCount = counts.getOrDefault('B', 0);
+
+        if (initialBoard.length() != 25 || rCount > 4 || bCount > 4 || RCount != 1 || BCount != 1 || dotCount + rCount + RCount + bCount + BCount != 25)
+            throw new InvalidConfigException("Initial board must be a 25 character long string consisting of [.rRbB]");
+
+        return initialBoard;
     }
 
     private SearchParameters getSearchParameters(int player) throws InvalidConfigException {
