@@ -230,10 +230,10 @@ keep the evaluation function computationally cheap. Below are a few parameter se
 
 |Parameter set|Parameters|Time|Elo (fixed plies)|Elo (fixed time)|
 |-------------|:--------:|-----------|-----------------|----------------|
-|Square + piece|30|4 hours|100 (64 % win)|70 (60 % win)|
-|Square + piece + card|440|48 hours|120 (66.5 % win)|70 (60 % win)|
-|As above, cards individually tuned|440|24 hours|135 (68.5 % win)|80 (61.5 % win)|
-|Square + piece + card + phase|880|48 hours|180 (74 % win)|100 (64 % win)|
+|Square + piece|30|4 hours|+100 (64 % win)|+70 (60 % win)|
+|Square + piece + card|440|48 hours|+120 (66.5 % win)|+70 (60 % win)|
+|As above, cards individually tuned|440|24 hours|+135 (68.5 % win)|+80 (61.5 % win)|
+|Square + piece + card + phase|880|48 hours|+180 (74 % win)|+100 (64 % win)|
 
 The time shows the elapsed time until convergence (using a 4 x 2.6 GHz CPU laptop), and the Elo differences are against the
 hand-tuned symmetrical evaluation function. To make the tuning more stable, the AIs search a fixed number of plies.
@@ -246,7 +246,7 @@ Running the best performing evaluation function (square + piece + card + phase) 
 30 parameter square + piece function, with a fixed time per move, the performance gain was 60 Elo (58.5 % win rate).
 
 ##### Conclusion
-The parameter set that showed most promise was one with one score for each combination of board position, card,
+The parameter set that showed most promise was using one score for each combination of board position, card,
 piece type (pawn / king), and game phase (middle / end game). For a horizontally self-symmetrical card, we need 15 scores for
 the board. For a pair of symmetrical cards, we need 25 scores (the cards use mirrored versions of the same scores).
 For the original set of 16 cards, with 2 game phases, 2 piece types, 8 self-symmetrical cards, and 4 symmetrical card pairs,
@@ -339,6 +339,10 @@ threaded search.
 
 
 ## Future ideas / improvements
+- Rewrite the search in a language that allows more control over the memory layout and native code generated,
+  such as C++ or Julia. It's likely that fully controlling the use of BMI (Bit Manipulation Instruction Set) and
+  AVX (Advanced Vector Extensions), instead of relying on what Java produces, could speed things up considerably.
 - Clean up the test code. There is a lot of commented out and temporary code from one-off tests.
 - Compress the TT better. Store key and state together for better cache locality. There's room for improvement.
+- Online and mobile versions.
 - Write an [Alpha Zero](https://en.wikipedia.org/wiki/AlphaZero) version of the AI.

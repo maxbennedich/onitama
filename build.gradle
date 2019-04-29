@@ -1,14 +1,23 @@
-apply plugin: 'application'
+plugins {
+    id 'application'
+    id 'org.openjfx.javafxplugin' version '0.0.7'
+}
+
+repositories {
+    mavenCentral()
+}
+
+javafx {
+    version = "11"
+    modules = [ 'javafx.controls' ]
+}
+
 mainClassName = "onitama.ui.Onitama"
 
 group 'onitama'
 version '0.1'
 
 sourceCompatibility = 1.8
-
-repositories {
-    mavenCentral()
-}
 
 test {
     useJUnitPlatform()

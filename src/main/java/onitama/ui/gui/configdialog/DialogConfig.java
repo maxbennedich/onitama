@@ -3,7 +3,6 @@ package onitama.ui.gui.configdialog;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.stream.Collectors;
 
 import onitama.ai.Searcher;
 import onitama.ai.TranspositionTable;
