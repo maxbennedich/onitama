@@ -24,16 +24,16 @@ gradle run
 Requires Java 11. Uses JavaFX for the GUI.
 
 ## Features implemented
-- [Negamax](https://chessprogramming.wikispaces.com/Negamax) with [alpha-beta pruning](https://chessprogramming.wikispaces.com/Alpha-Beta)
-- [Iterative deepening](https://chessprogramming.wikispaces.com/Iterative+Deepening)
-- [Principal variation search](https://chessprogramming.wikispaces.com/Principal%20Variation%20Search)
-- [Quiescence search](https://chessprogramming.wikispaces.com/Quiescence%20Search)
-- Dynamically sized, two-tier, [transposition table](https://chessprogramming.wikispaces.com/Transposition+Table) ("TT")
-- [Zobrist hashing](https://chessprogramming.wikispaces.com/Zobrist+Hashing)
-- [Move ordering](https://chessprogramming.wikispaces.com/Move+Ordering): best move, winning moves, capture moves, [history heuristics](https://chessprogramming.wikispaces.com/History%20Heuristic)
-- [Evaluation function](https://chessprogramming.wikispaces.com/Evaluation) optimized by [SPSA automated tuning](https://chessprogramming.wikispaces.com/SPSA)
-- [Bitboards](https://chessprogramming.wikispaces.com/Bitboards), for move generation and validation
-- Multithreaded [pondering](https://chessprogramming.wikispaces.com/Pondering)
+- [Negamax](https://www.chessprogramming.org/Negamax) with [alpha-beta pruning](https://www.chessprogramming.org/Alpha-Beta)
+- [Iterative deepening](https://www.chessprogramming.org/Iterative_Deepening)
+- [Principal variation search](https://www.chessprogramming.org/Principal_Variation_Search)
+- [Quiescence search](https://www.chessprogramming.org/Quiescence_Search)
+- Dynamically sized, two-tier, [transposition table](https://www.chessprogramming.org/Transposition_Table) ("TT")
+- [Zobrist hashing](https://www.chessprogramming.org/Zobrist_Hashing)
+- [Move ordering](https://www.chessprogramming.org/Move_Ordering): best move, winning moves, capture moves, [history heuristics](https://www.chessprogramming.org/History_Heuristic)
+- [Evaluation function](https://www.chessprogramming.org/Evaluation) optimized by [SPSA automated tuning](https://www.chessprogramming.org/SPSA)
+- [Bitboards](https://www.chessprogramming.org/Bitboards), for move generation and validation
+- Multithreaded [pondering](https://www.chessprogramming.org/Pondering)
 
 ## Performance
 
@@ -41,7 +41,7 @@ On a 2.6 GHz laptop, the AI evaluates around 4 million board states (i.e. moves)
 As for how many moves ahead the AI can search, it varies greatly with the
 state of the game. From the initial board position, and still on a 2.6 GHz laptop with a single-threaded
 search, the AI typically searches a nominal depth of 12
-[plies](https://chessprogramming.wikispaces.com/Ply) fully in around 1 second, and 16-17 plies in
+[plies](https://www.chessprogramming.org/Ply) fully in around 1 second, and 16-17 plies in
 1 minute. During the endgame, with 2 pieces per player, the AI commonly searches around 16
 plies in 1 second, and >30 plies in 1 minute.
 The branching factor (moves tried per state) also varies with the state of the game,
@@ -132,9 +132,9 @@ Quiescence branching factor:  19: 0.81  20: 0.45  21: 0.50  22: 0.27  23: 0.27  
 
 ## Details on features implemented/tried
 
-### Transposition table ([wiki](https://chessprogramming.wikispaces.com/Transposition+Table))
+### Transposition table ([wiki](https://www.chessprogramming.org/Transposition_Table))
 Also known as TT. A table that stores states that have been evaluated previously during the search, so that they don't have to be evaluated again.
-Uses [Zobrist hashing](https://chessprogramming.wikispaces.com/Zobrist+Hashing) to encode states.
+Uses [Zobrist hashing](https://www.chessprogramming.org/Zobrist_Hashing) to encode states.
 By itself this improved search times by around 25 %, using a replace-always scheme. Moreover, it makes it possible to store the
 best move for each node. Changing this to a depth-preferred scheme gave much better results when the TT was filling up (>25 % full), but sometimes
 resulted in worse results. Using a two-tier table, storing one depth-preferred entry and one most recent entry, gave the best result. Huge improvements
@@ -168,18 +168,18 @@ long run from initially having started out small. This is used by the pondering 
 increasing the size gradually as some searches finish and there are fewer remaining.
 
 
-### Move ordering ([wiki](https://chessprogramming.wikispaces.com/Move+Ordering))
-Thanks to [alpha-beta pruning](https://chessprogramming.wikispaces.com/Alpha-Beta),
+### Move ordering ([wiki](https://www.chessprogramming.org/Move_Ordering))
+Thanks to [alpha-beta pruning](https://www.chessprogramming.org/Alpha-Beta),
 trying better moves first during the search
-lowers the effective [branching factor](https://chessprogramming.wikispaces.com/Branching+Factor),
+lowers the effective [branching factor](https://www.chessprogramming.org/Branching_Factor),
 meaning an exponential savings in nodes visited (bigger saving the
 more plies are searched). At a typical game state, there are 10 - 20 possible moves, yet with efficient move
 ordering, we only need to test ~2.5 of those moves on average before a cutoff. To save time, moves are
 generated lazily (no need to score and sort 20 moves, if we only need to test 2 of them). The order is as follows:
 
-1. [Best move](https://chessprogramming.wikispaces.com/Best+Move), if available.
+1. [Best move](https://www.chessprogramming.org/Best_Move), if available.
    This is the best move found during a more shallow search in
-   [iterative deepening](https://chessprogramming.wikispaces.com/Iterative+Deepening) and
+   [iterative deepening](https://www.chessprogramming.org/Iterative_Deepening) and
    stored in the TT. This by itself resulted in ~5x faster search times over no move ordering at all
    in the `TestVariousBoardsAndCards` test suite.
    (Note: It is ok to put this before winning moves, since the best move will always be the
@@ -187,7 +187,7 @@ generated lazily (no need to score and sort 20 moves, if we only need to test 2 
 1. Winning moves; capturing the opponent's king, or moving the king to the winning position. This reduced the number
    of visited states by ~20 % in the test suite.
 1. Piece captures. This made a huge difference -- 10-20x less states visited overall in the test suite.
-1. [History table heuristic](https://chessprogramming.wikispaces.com/History+Heuristic).
+1. [History table heuristic](https://www.chessprogramming.org/History_Heuristic).
    Moves are ordered by how often they produce non-capture, non-winning alpha-beta cutoffs.
    This cut the number of visited nodes in half in the test suite.
 
@@ -198,12 +198,12 @@ opponent piece, leading to material difference and a high score), and in the cas
 move is needed.
 
 
-### Evaluation function ([wiki](https://chessprogramming.wikispaces.com/Evaluation))
+### Evaluation function ([wiki](https://www.chessprogramming.org/Evaluation))
 The evaluation function is used at the end of the search, to heuristically assign a score to a given game state (board and cards).
 During earlier phases of the AI, an evaluation function that assigned a static, board-symmetrical score to each square was used,
 with higher scores assigned closer to the center of a board. This was a highly efficient function, since it could be performed
 with a few bit operations and multiplications, and seemed to work reasonably well. Experiments were performed adding
-[mobility](https://chessprogramming.wikispaces.com/Mobility) to the equation, but that did not improve the win rate.
+[mobility](https://www.chessprogramming.org/Mobility) to the equation, but that did not improve the win rate.
 
 ##### The need for automated tuning
 It was noticed that modifying the scores assigned to each square could have a significant impact on the win rate, suggesting
@@ -211,14 +211,14 @@ that there was room for improvement by finding the optimal score for each square
 that could be considered than just board position: cards assigned, king position, phase of the game (for example, towards
 the end of the game, it might be more advantageous to move your king towards the opponent king's start square, which wins
 the game, and similarly defend your own start square). Figuring out the importance of all these parameters is hard to do
-manually, which is why one turns to [automated tuning](https://chessprogramming.wikispaces.com/Automated+Tuning).
+manually, which is why one turns to [automated tuning](https://www.chessprogramming.org/Automated_Tuning).
 
 ##### Optimization algorithm
 There are two parts to automated tuning. One is choosing which parameters to tune, and the other is the optimization
 algorithm to figure out the optimal value for each parameter. A few popular algorithms are
-[SPSA](https://chessprogramming.wikispaces.com/SPSA),
-[Stockfish's tuning method](https://chessprogramming.wikispaces.com/Stockfish%27s%20Tuning%20Method), and
-[local optimization](https://chessprogramming.wikispaces.com/Texel%27s%20Tuning%20Method#Pseudo%20Code).
+[SPSA](https://www.chessprogramming.org/SPSA),
+[Stockfish's tuning method](https://www.chessprogramming.org/Stockfish%27s_Tuning_Method), and
+[local optimization](https://www.chessprogramming.org/Texel%27s_Tuning_Method#Pseudo_Code).
 After experimentation with all three, SPSA (Simultaneous Perturbation Stochastic Approximation) was found to converge
 fastest. A good explanation of this algorithm can be found in
 [this paper](http://www.jhuapl.edu/spsa/PDF-SPSA/Spall_Implementation_of_the_Simultaneous.PDF).
@@ -274,7 +274,7 @@ The video below shows how the scores evolved over time (high bar = favorable pos
 <a href="https://maxbennedich.github.io/onitama-evaluation.mp4"><img src="onitama-evaluation.jpg" width="75%"></a>
 </p>
 
-### Bitboards ([wiki](https://chessprogramming.wikispaces.com/Bitboards))
+### Bitboards ([wiki](https://www.chessprogramming.org/Bitboards))
 Instead of representing the board as a 2D array,
 and available moves as a list, store them as bits packed into integers, where each bit represents
 a cell on the board. This speeds up
@@ -288,8 +288,8 @@ Things like filtering for capture moves, or excluding moves onto oneself, then b
 This feature resulted in a 4x speedup overall.
 
 
-### Quiescence search ([wiki](https://chessprogramming.wikispaces.com/Quiescence%20Search))
-If there are pending captures or wins once the [horizon node](https://chessprogramming.wikispaces.com/Horizon+Node)
+### Quiescence search ([wiki](https://www.chessprogramming.org/Quiescence_Search))
+If there are pending captures or wins once the [horizon node](https://www.chessprogramming.org/Horizon_Node)
 is reached, keep searching until a quiet stage is reached. This resulted
 in an 80-90 % win rate against an AI without quiescence search with the same nominal depth. However, since it searches more states, it uses a bit more
 time. Adjusting for this, i.e. searching at unlimited depth (with iterative deepening) for a fixed period of time per move, the win rate was 63-68 %
@@ -304,17 +304,17 @@ the quiescence scores actually made the search take twice as long. Should experi
 This did not help, it lead to quite a bit more nodes searched during the quiescence search, without finding a win faster.
 
 
-### Principal variation search ([wiki](https://chessprogramming.wikispaces.com/Principal%20Variation%20Search))
+### Principal variation search ([wiki](https://www.chessprogramming.org/Principal_Variation_Search))
 Trivial change, which reduced the number of visited nodes by roughly 10 % on average. For some test cases, it barely
 made a difference, although for some it cut the number of visited nodes in half. Running AI vs AI tests with a fixed time per move (200, 2000
 and 5000 ms) showed a very slight improvement with a 52.5 - 54 % win rate for the principal variation search.
 
 
-### Aspiration windows ([wiki](https://chessprogramming.wikispaces.com/Aspiration+Windows))
+### Aspiration windows ([wiki](https://www.chessprogramming.org/Aspiration_Windows))
 Experimented with this and did not find that it helped.
 
 
-### Endgame table ([wiki](https://chessprogramming.wikispaces.com/Endgame+Tablebases))
+### Endgame table ([wiki](https://www.chessprogramming.org/Endgame_Tablebases))
 Problematic since there are 131,040 combinations of 5 cards, and it would take a long time to pre-calculate all of them. Possibly a
 few background threads can calculate endgames once the 5 cards are known. Searching the default test case to the end (depth 12), we have that 0.02 % of
 all states analyzed have 2 pieces, 0.25 % have 3 pieces, 1.4 % have 4 pieces, 4.7 % have 5 pieces, and 12.1 % have 6 pieces. There are 635,400 possible
@@ -323,7 +323,7 @@ likely not more than that. This might not make much of a difference during gener
 count is small.)
 
 
-### Pondering ([wiki](https://chessprogramming.wikispaces.com/Pondering))
+### Pondering ([wiki](https://www.chessprogramming.org/Pondering))
 Most literature recommends a single search pondering just the most probable opponent move, assuming that this move will actually be
 played by the opponent 50+ % of the times ("ponder hit rate"). For this project, I have a assumed a much lower ponder hit rate, so instead a
 separate search is started for every possible opponent move, and once the opponent moves, all irrelevant search tasks are terminated. A fixed
@@ -331,9 +331,9 @@ number of threads is used, and moves are searched an additional ply at a time (b
 feature uses dynamic TT resizing to make efficient use of the available memory.
 
 
-### Parallelization ([wiki](https://chessprogramming.wikispaces.com/Parallel+Search))
+### Parallelization ([wiki](https://www.chessprogramming.org/Parallel_Search))
 Tried parallelization through multiple identical search threads started at the same time with a
-[shared TT](https://chessprogramming.wikispaces.com/Shared%20Hash%20Table). This scaled quite badly, with a speedup of
+[shared TT](https://www.chessprogramming.org/Shared_Hash_Table). This scaled quite badly, with a speedup of
 around 1.2 - 1.25 with 2 - 3 threads (on a 2x4 core system), with no TT locking at all. The number of nodes visited was 60-70 % of the single
 threaded search.
 
