@@ -17,7 +17,7 @@ import onitama.model.GameDefinition;
  * <p>
  * A significant amount of the total search time (~15 %) is spent in this method, and some effort has gone into optimizing it:
  * <ul>
- * <li>Board positions are looped over in a bitwise way (just like in the {@link MoveGenerator}).</li>
+ * <li>Board positions are looped over in a bitwise way (just like in the {@link onitama.ai.MoveGenerator}).</li>
  * <li>The PST scores have been converted to fixed point integers to avoid floating point math.</li>
  * <li>Tables are pre-calculated for each of the 7 possible phases, instead of only storing one middle game table and one
  * end game table, and interpolating between the two.</li>
@@ -29,7 +29,7 @@ import onitama.model.GameDefinition;
  * the score during the move / unmove.
  */
 public class PstEvaluator extends Evaluator {
-    private static final short[] PST = optimizePst(PieceSquareTables.CARD_PHASE_PIECE_POSITION_RAW_SCORES_ORIGINAL_CARDS);
+    private static final short[] PST = optimizePst(PieceSquareTables.CARD_PHASE_PIECE_POSITION_RAW_SCORES_ALL_CARDS);
 
     private static final int NR_PHASES = 7;
 

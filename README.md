@@ -21,7 +21,7 @@ resolution):
 gradle run
 ```
 
-Requires Java 8.
+Requires Java 11. Uses JavaFX for the GUI.
 
 ## Features implemented
 - [Negamax](https://chessprogramming.wikispaces.com/Negamax) with [alpha-beta pruning](https://chessprogramming.wikispaces.com/Alpha-Beta)

@@ -7,7 +7,7 @@ import onitama.tuning.SpsaTuner;
 
 public class PieceSquareTables {
     /** Fallback PST used for missing cards. */
-    public static double[] CENTER_PRIORITY = new double[] {
+    public static final double[] CENTER_PRIORITY = new double[] {
          0,  4,  8,  4,  0,
          4,  8, 12,  8,  4,
          8, 12, 16, 12,  8,
@@ -21,7 +21,7 @@ public class PieceSquareTables {
      * and around +100 with a fixed time allowed per move.
      */
     @SuppressWarnings("serial")
-    public static HashMap<Card, double[][][]> CARD_PHASE_PIECE_POSITION_RAW_SCORES_ORIGINAL_CARDS = new HashMap<Card, double[][][]>() {{
+    public static final HashMap<Card, double[][][]> CARD_PHASE_PIECE_POSITION_RAW_SCORES_ORIGINAL_CARDS = new HashMap<Card, double[][][]>() {{
        put(Card.Tiger, new double[][][] {{{
            -2.37, 16.91, 11.20, 16.91, -2.37,
            9.82, 0.31, 16.96, 0.31, 9.82,
@@ -423,4 +423,15 @@ public class PieceSquareTables {
            -0.34, -2.02, 0.61, -1.12, -7.12,
        }}});
     }};
+
+    private static HashMap<Card, double[][][]> getAllCardsPST() {
+        var pst = new HashMap<>(CARD_PHASE_PIECE_POSITION_RAW_SCORES_ORIGINAL_CARDS);
+        for (Card card : Card.CARDS)
+            if (!pst.containsKey(card))
+                pst.put(card, new double[][][]{{CENTER_PRIORITY, CENTER_PRIORITY}, {CENTER_PRIORITY, CENTER_PRIORITY}});
+        return pst;
+    }
+
+    /** PST for all cards, by using the "center priority" PST for the non-original cards which haven't been tuned. */
+    public static final HashMap<Card, double[][][]> CARD_PHASE_PIECE_POSITION_RAW_SCORES_ALL_CARDS = getAllCardsPST();
 };
